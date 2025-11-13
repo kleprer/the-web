@@ -13,7 +13,7 @@ const Navbar = () => {
         <div className="flex items-center">
           {isLoggedIn && (
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-              <UserOutlined className="text-black text-lg" />
+              <UserOutlined className="text-black text-lg text-[24px]" />
             </div>
           )}
         </div>
