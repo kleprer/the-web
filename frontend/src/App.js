@@ -11,7 +11,6 @@ function App() {
   return (
     <Router>
       <div className="App bg-[#151516] min-h-screen">
-        <Navbar />
         <Routes>
           {/* Авторизация */}
           <Route path="/auth" element={<Auth />} />
