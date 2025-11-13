@@ -1,5 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import InputField from '../components/InputField';
+import ButtonOutline from '../components/ButtonOutline';
+import ButtonFilled from '../components/ButtonFilled';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -10,6 +13,9 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#151516]">
+        <InputField placeholder="journalist@gmail.com"/>
+        <ButtonOutline children="Войти" />
+        <ButtonFilled children="Зарегистрироваться" />
     </div>
   );
 };

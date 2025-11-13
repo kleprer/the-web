@@ -1,29 +1,25 @@
+// components/ButtonFilled.jsx
 import React from 'react';
 
-const InputField = ({ 
-  placeholder, 
-  value, 
-  onChange,
-  type = "text",
+const ButtonFilled = ({ 
+  children,
+  onClick,
   className = "",
+  type = "button",
   ...props 
 }) => {
   return (
-    <input
+    <button
       type={type}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
+      onClick={onClick}
       className={`
-        min-w-[15em0]
+        w-min-[10em]
         border-[1px]
         border-white 
         rounded-[20px] 
-        bg-[#151516]
+        bg-white
         border-opacity-100
-        text-white 
-        placeholder-white 
-        placeholder-opacity-60
+        text-[#151516] 
         px-3 
         py-2
         text-[20px]
@@ -31,11 +27,17 @@ const InputField = ({
         focus:ring-2 
         focus:ring-white 
         focus:ring-opacity-50
+        hover:bg-gray-200
+        hover:border-gray-200
+        transition-colors
+        duration-200
         ${className}
       `}
       {...props}
-    />
+    >
+      {children}
+    </button>
   );
 };
 
-export default InputField;
+export default ButtonFilled;
