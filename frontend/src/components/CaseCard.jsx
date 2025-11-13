@@ -7,9 +7,10 @@ const CaseCard = ({
   date, 
   trustLevel = 'unknown',
   className = "",
+  initialPosition = { x: 0, y: 0 }, // принимаем начальную позицию
   ...props 
 }) => {
-  const [position, setPosition] = useState({ x: 100, y: 100 });
+  const [position, setPosition] = useState(initialPosition);
   const [isDragging, setIsDragging] = useState(false);
 
   // Trust level circle styles
@@ -21,7 +22,6 @@ const CaseCard = ({
     }
   };
 
-  // ПРОСТОЙ ДРАГ ХЕНДЛЕР
   const handleMouseDown = (e) => {
     setIsDragging(true);
     e.preventDefault();
