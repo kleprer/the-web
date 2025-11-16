@@ -1,9 +1,14 @@
 import React from 'react';
 
 const ConnectionLine = ({ start, end, isTemp = false }) => {
+  if (!start || !end || start.x === undefined || start.y === undefined || end.x === undefined || end.y === undefined) {
+    return null;
+  }
+
   return (
     <svg 
       className="absolute top-0 left-0 w-full h-full pointer-events-none z-10"
+      style={{ overflow: 'visible' }}
     >
       <line
         x1={start.x}
@@ -14,10 +19,11 @@ const ConnectionLine = ({ start, end, isTemp = false }) => {
         strokeWidth={isTemp ? "1.5" : "2"}
         strokeDasharray={isTemp ? "5,5" : "none"}
       />
+      
       {!isTemp && (
         <>
-          <circle cx={start.x} cy={start.y} r="3" fill="#3B82F6" />
-          <circle cx={end.x} cy={end.y} r="3" fill="#3B82F6" />
+          <circle cx={start.x} cy={start.y} r="4" fill="#3B82F6" />
+          <circle cx={end.x} cy={end.y} r="4" fill="#3B82F6" />
         </>
       )}
     </svg>

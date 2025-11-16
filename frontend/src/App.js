@@ -23,9 +23,11 @@ function App() {
           
           {/* Таймлайн */}
           <Route path="/timeline/:boardId" element={<Timeline />} />
+          <Route path="/timeline" element={<Timeline />} />
           
           {/* Хранилище доказательств */}
           <Route path="/evidence/:boardId" element={<EvidenceStorage />} />
+          <Route path="/evidences" element={<EvidenceStorage />} />
           
           {/* Перенаправление с корня на авторизацию */}
           <Route path="/" element={<Navigate to="/auth" replace />} />

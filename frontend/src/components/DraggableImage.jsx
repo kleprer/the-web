@@ -9,6 +9,7 @@ const DraggableImage = ({
   onEdit,
   isEditMode = false,
   isSelected = false,
+  isConnectingMode = false,
   onSelect,
   ...props 
 }) => {
@@ -16,6 +17,10 @@ const DraggableImage = ({
   const [isDragging, setIsDragging] = useState(false);
 
   const handleMouseDown = (e) => {
+    if (isConnectingMode) {
+      e.stopPropagation();
+      return;
+    }
     if (isEditMode && onSelect) {
       onSelect(id, e.shiftKey);
     }

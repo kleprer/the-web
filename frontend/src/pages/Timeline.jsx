@@ -2,8 +2,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PlusOutlined, UserOutlined } from '@ant-design/icons';
 import TimelineEvent from '../components/TimelineEvent';
-import CaseSelector from '../components/CaseSelector';
 import NewEventForm from '../components/NewEventForm';
+import Navbar from '../components/Navbar';
 
 const Timeline = () => {
   const [events, setEvents] = useState([]);
@@ -82,33 +82,7 @@ const Timeline = () => {
   return (
     <div className="min-h-screen bg-[#151516] text-white">
       {/* Navbar */}
-      <nav className="bg-transparent p-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          {/* Левая часть - иконка пользователя и селектор кейсов */}
-          <div className="flex items-center gap-6">
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-              <UserOutlined className="text-black text-lg" />
-            </div>
-            <CaseSelector 
-              currentCase={currentCase} 
-              onCaseChange={setCurrentCase} 
-            />
-          </div>
-
-          {/* Правая часть - название и кнопка добавления */}
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col items-end">
-              <p className="font-comorant-sc font-semibold text-2xl text-white leading-none">
-                ПАУТИНА
-              </p>
-              <p className="font-inter font-light text-sm text-white leading-none mt-1">
-                ассистент журналиста
-              </p>
-            </div>
-            <img src="/logo.svg" alt="Логотип" className="h-10 w-10" />
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Кнопка добавления события */}
       <div className="container mx-auto px-8 mt-6">

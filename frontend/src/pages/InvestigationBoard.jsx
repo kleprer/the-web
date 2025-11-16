@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import CaseCard from '../components/CaseCard';
 import Toolbar from '../components/Toolbar';
 import DraggableText from '../components/DraggableText';
@@ -7,6 +8,7 @@ import ConnectionLine from '../components/ConnectionLine';
 import Navbar from '../components/Navbar';
 
 const InvestigationBoard = () => {
+  const { boardId } = useParams();
   const [cards, setCards] = useState([]);
   const [texts, setTexts] = useState([]);
   const [images, setImages] = useState([]);
@@ -23,16 +25,16 @@ const InvestigationBoard = () => {
   const [connectingStart, setConnectingStart] = useState(null);
   const [tempConnectionEnd, setTempConnectionEnd] = useState(null);
   const [dragStart, setDragStart] = useState(null);
-  const [editingElementId, setEditingElementId] = useState(null); // Новое состояние для редактируемого элемента
+  const [editingElementId, setEditingElementId] = useState(null);
   
   const canvasRef = useRef(null);
 
   // ФУНКЦИИ ДЛЯ РАБОТЫ С ЭЛЕМЕНТАМИ
-  const getAllElements = () => [
+  const getAllElements = useCallback(() => [
     ...cards.map(card => ({ ...card, type: 'card' })),
     ...texts.map(text => ({ ...text, type: 'text' })),
     ...images.map(img => ({ ...img, type: 'image' }))
-  ];
+  ], [cards, texts, images]);
 
   const getElementRect = (element) => {
     const dimensions = {
@@ -57,84 +59,155 @@ const InvestigationBoard = () => {
     };
   };
 
-  const findElementAtPoint = (x, y) => {
+  const findElementAtPoint = useCallback((x, y) => {
     const allElements = getAllElements();
-    return allElements.find(element => {
+    for (let i = allElements.length - 1; i >= 0; i--) {
+      const element = allElements[i];
       const rect = getElementRect(element);
-      return x >= rect.x && x <= rect.x + rect.width && 
-             y >= rect.y && y <= rect.y + rect.height;
-    });
-  };
-
-  const isRectOverlap = (rect1, rect2) => {
-    return rect1.x < rect2.x + rect2.width &&
-           rect1.x + rect1.width > rect2.x &&
-           rect1.y < rect2.y + rect2.height &&
-           rect1.y + rect1.height > rect2.y;
-  };
-
-  // ДВОЙНОЙ КЛИК ПО КАНВАСУ - СБРОС РЕЖИМОВ
-  const handleCanvasDoubleClick = (e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left - canvasOffset.x;
-    const clickY = e.clientY - rect.top - canvasOffset.y;
-
-    const clickedElement = findElementAtPoint(clickX, clickY);
-    
-    // Если кликнули по пустому месту (не по элементу) - сбрасываем режимы
-    if (!clickedElement) {
-      resetTools();
+      if (x >= rect.x && x <= rect.x + rect.width && 
+          y >= rect.y && y <= rect.y + rect.height) {
+        return element;
+      }
     }
+    return null;
+  }, [getAllElements]);
+
+  // ПРОСТАЯ И РАБОЧАЯ ФУНКЦИЯ СОЗДАНИЯ СОЕДИНЕНИЯ
+  const createConnection = (startElement, endElement) => {
+    console.log('🔄 Создание соединения между:', startElement.id, 'и', endElement.id);
+    
+    if (!startElement || !endElement) {
+      console.log('❌ Один из элементов не найден');
+      return null;
+    }
+
+    if (startElement.id === endElement.id) {
+      console.log('❌ Нельзя соединить элемент с самим собой');
+      return null;
+    }
+
+    // Проверяем, не существует ли уже такое соединение
+    const connectionExists = connections.some(conn => 
+      (conn.start.elementId === startElement.id && conn.end.elementId === endElement.id) ||
+      (conn.start.elementId === endElement.id && conn.end.elementId === startElement.id)
+    );
+
+    if (connectionExists) {
+      console.log('❌ Соединение уже существует');
+      return null;
+    }
+
+    const newConnection = {
+      id: `conn-${Date.now()}`,
+      start: { 
+        elementId: startElement.id, 
+        type: startElement.type
+      },
+      end: { 
+        elementId: endElement.id, 
+        type: endElement.type
+      }
+    };
+
+    console.log('✅ СОЕДИНЕНИЕ СОЗДАНО!', newConnection);
+    return newConnection;
   };
 
-  // ОБНОВЛЕННЫЙ: ОБРАБОТЧИКИ МЫШИ ДЛЯ ГРУППОВОГО ПЕРЕМЕЩЕНИЯ
-  const handleCanvasMouseDown = (e) => {
-    // Если элемент в режиме редактирования - игнорируем клики
+  // ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ ПОЗИЦИЙ СОЕДИНЕНИЙ
+  const getConnectionPositions = useCallback((connection) => {
+    const allElements = getAllElements();
+    const startElement = allElements.find(el => el.id === connection.start.elementId);
+    const endElement = allElements.find(el => el.id === connection.end.elementId);
+
+    if (!startElement || !endElement) {
+      return null;
+    }
+
+    return {
+      start: getElementCenter(startElement),
+      end: getElementCenter(endElement)
+    };
+  }, [getAllElements]);
+
+  // ОБРАБОТЧИК КЛИКА ДЛЯ СОЕДИНЕНИЙ
+  const handleConnectionClick = useCallback((e) => {
+    if (!isConnecting) return;
     if (editingElementId) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left - canvasOffset.x;
     const clickY = e.clientY - rect.top - canvasOffset.y;
 
-    if (isConnecting) {
-      // РЕЖИМ СОЕДИНЕНИЯ
-      const element = findElementAtPoint(clickX, clickY);
-      if (element) {
-        if (!connectingStart) {
-          setConnectingStart({
-            elementId: element.id,
-            elementType: element.type,
-            x: getElementCenter(element).x,
-            y: getElementCenter(element).y
-          });
-        } else {
-          if (connectingStart.elementId !== element.id) {
-            const newConnection = {
-              id: `conn-${Date.now()}`,
-              start: { elementId: connectingStart.elementId, type: connectingStart.elementType },
-              end: { elementId: element.id, type: element.type }
-            };
-            setConnections(prev => [...prev, newConnection]);
-          }
-          setConnectingStart(null);
-        }
+    console.log('🎯 Клик в режиме соединения:', { clickX, clickY });
+    
+    const element = findElementAtPoint(clickX, clickY);
+    console.log('🔍 Найден элемент:', element ? `${element.type}:${element.id}` : 'null');
+
+    if (!element) {
+      console.log('❌ Клик по пустому месту, сбрасываем соединение');
+      setConnectingStart(null);
+      setTempConnectionEnd(null);
+      setSelectedElements(new Set());
+      return;
+    }
+
+    if (!connectingStart) {
+      // ВЫБОР ПЕРВОГО ЭЛЕМЕНТА
+      console.log('✅ Выбран ПЕРВЫЙ элемент:', element.id);
+      setConnectingStart(element);
+      setSelectedElements(new Set([element.id]));
+    } else {
+      // ВЫБОР ВТОРОГО ЭЛЕМЕНТА
+      console.log('✅ Выбран ВТОРОЙ элемент:', element.id);
+      
+      const newConnection = createConnection(connectingStart, element);
+      
+      if (newConnection) {
+        console.log('🔄 Добавляем соединение в массив...');
+        setConnections(prev => {
+          const newConnections = [...prev, newConnection];
+          console.log('✅ Новый массив соединений:', newConnections);
+          return newConnections;
+        });
       }
-    } else if (isSelecting) {
-      // РЕЖИМ ВЫДЕЛЕНИЯ
+      
+      // СБРАСЫВАЕМ СОСТОЯНИЕ
+      setConnectingStart(null);
+      setTempConnectionEnd(null);
+      setSelectedElements(new Set());
+    }
+
+    e.stopPropagation();
+    e.preventDefault();
+  }, [isConnecting, connectingStart, canvasOffset, editingElementId, findElementAtPoint, connections]);
+
+  // ОБНОВЛЕННЫЙ ОБРАБОТЧИК НАЖАТИЯ МЫШИ
+  const handleCanvasMouseDown = (e) => {
+    console.log('🖱️ MouseDown - режим соединения:', isConnecting);
+    
+    if (editingElementId) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left - canvasOffset.x;
+    const clickY = e.clientY - rect.top - canvasOffset.y;
+
+    // ЕСЛИ РЕЖИМ СОЕДИНЕНИЯ - ВЫЗЫВАЕМ ОБРАБОТЧИК СОЕДИНЕНИЙ
+    if (isConnecting) {
+      handleConnectionClick(e);
+      return;
+    }
+
+    if (isSelecting) {
       setSelectionStart({ x: clickX, y: clickY });
       if (!e.shiftKey) setSelectedElements(new Set());
     } else if (isMovingCanvas) {
-      // РЕЖИМ ПЕРЕМЕЩЕНИЯ КАНВАСА
       setIsDraggingCanvas(true);
     } else {
-      // ПРОВЕРЯЕМ, НАЖАЛИ ЛИ НА ЭЛЕМЕНТ ИЛИ НА ПУСТОЕ МЕСТО
       const clickedElement = findElementAtPoint(clickX, clickY);
       
       if (clickedElement) {
-        // НАЖАЛИ НА ЭЛЕМЕНТ - ВЫДЕЛЯЕМ/СНИМАЕМ ВЫДЕЛЕНИЕ
         handleElementSelect(clickedElement.id, e.shiftKey);
         
-        // НАЧИНАЕМ ПЕРЕТАСКИВАНИЕ ВЫДЕЛЕННЫХ ЭЛЕМЕНТОВ
         if (selectedElements.has(clickedElement.id) || !e.shiftKey) {
           setIsDraggingSelection(true);
           setDragStart({ 
@@ -146,16 +219,12 @@ const InvestigationBoard = () => {
           });
         }
       } else {
-        // НАЖАЛИ НА ПУСТОЕ МЕСТО - СБРАСЫВАЕМ ВЫДЕЛЕНИЕ
         if (!e.shiftKey) setSelectedElements(new Set());
       }
     }
-    
-    e.preventDefault();
   };
 
   const handleCanvasMouseMove = useCallback((e) => {
-    // Если элемент в режиме редактирования - игнорируем перемещение
     if (editingElementId) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
@@ -163,13 +232,11 @@ const InvestigationBoard = () => {
     const currentY = e.clientY - rect.top - canvasOffset.y;
 
     if (isDraggingCanvas) {
-      // ПЕРЕМЕЩЕНИЕ КАНВАСА
       setCanvasOffset(prev => ({
         x: prev.x + e.movementX,
         y: prev.y + e.movementY
       }));
     } else if (isSelecting && selectionStart) {
-      // ВЫДЕЛЕНИЕ ОБЛАСТИ
       setSelectionRect({
         x: Math.min(selectionStart.x, currentX),
         y: Math.min(selectionStart.y, currentY),
@@ -178,13 +245,15 @@ const InvestigationBoard = () => {
       });
     } else if (isConnecting && connectingStart) {
       // ВРЕМЕННАЯ ЛИНИЯ СОЕДИНЕНИЯ
-      setTempConnectionEnd({ x: currentX, y: currentY });
+      const startPos = getElementCenter(connectingStart);
+      setTempConnectionEnd({ 
+        start: startPos,
+        end: { x: currentX, y: currentY }
+      });
     } else if (isDraggingSelection && dragStart && selectedElements.size > 0) {
-      // ГРУППОВОЕ ПЕРЕМЕЩЕНИЕ ВЫДЕЛЕННЫХ ЭЛЕМЕНТОВ
       const deltaX = e.clientX - dragStart.x;
       const deltaY = e.clientY - dragStart.y;
 
-      // ОБНОВЛЯЕМ ВСЕ ВЫДЕЛЕННЫЕ ЭЛЕМЕНТЫ НА ОСНОВЕ ИЗНАЧАЛЬНЫХ ПОЗИЦИЙ
       dragStart.initialPositions.forEach(({ id, type, position }) => {
         const newPosition = {
           x: position.x + deltaX,
@@ -206,17 +275,23 @@ const InvestigationBoard = () => {
         }
       });
     }
-  }, [isDraggingCanvas, isSelecting, selectionStart, isConnecting, connectingStart, isDraggingSelection, selectedElements, canvasOffset, dragStart, editingElementId]);
+  }, [
+    isDraggingCanvas, isSelecting, selectionStart, isConnecting, 
+    connectingStart, isDraggingSelection, selectedElements, 
+    canvasOffset, dragStart, editingElementId
+  ]);
 
   const handleCanvasMouseUp = useCallback(() => {
     if (isSelecting && selectionRect) {
-      // ЗАВЕРШЕНИЕ ВЫДЕЛЕНИЯ ОБЛАСТИ
       const allElements = getAllElements();
       const selected = new Set(selectedElements);
       
       allElements.forEach(element => {
         const elementRect = getElementRect(element);
-        if (isRectOverlap(selectionRect, elementRect)) {
+        if (elementRect.x < selectionRect.x + selectionRect.width &&
+            elementRect.x + elementRect.width > selectionRect.x &&
+            elementRect.y < selectionRect.y + selectionRect.height &&
+            elementRect.y + elementRect.height > selectionRect.y) {
           selected.add(element.id);
         }
       });
@@ -224,13 +299,12 @@ const InvestigationBoard = () => {
       setSelectedElements(selected);
     }
 
-    // СБРОС ВСЕХ СОСТОЯНИЙ ПЕРЕТАСКИВАНИЯ
     setSelectionStart(null);
     setSelectionRect(null);
     setIsDraggingCanvas(false);
     setIsDraggingSelection(false);
     setDragStart(null);
-  }, [isSelecting, selectionRect, selectedElements]);
+  }, [isSelecting, selectionRect, selectedElements, getAllElements]);
 
   // EVENT LISTENERS
   useEffect(() => {
@@ -243,75 +317,36 @@ const InvestigationBoard = () => {
     };
   }, [handleCanvasMouseMove, handleCanvasMouseUp]);
 
-  // УПРАВЛЕНИЕ СТРЕЛКАМИ
+  // УДАЛЕНИЕ СОЕДИНЕНИЙ ПРИ УДАЛЕНИИ ЭЛЕМЕНТОВ
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Если элемент в режиме редактирования - игнорируем клавиши
-      if (editingElementId) return;
-
-      if (selectedElements.size > 0 && e.key.startsWith('Arrow')) {
-        e.preventDefault();
-        const moveStep = e.shiftKey ? 10 : 1;
-        const movement = {
-          'ArrowUp': { x: 0, y: -moveStep },
-          'ArrowDown': { x: 0, y: moveStep },
-          'ArrowLeft': { x: -moveStep, y: 0 },
-          'ArrowRight': { x: moveStep, y: 0 }
-        }[e.key];
-
-        setCards(prev => prev.map(card => 
-          selectedElements.has(card.id) 
-            ? { ...card, position: { x: card.position.x + movement.x, y: card.position.y + movement.y } }
-            : card
-        ));
-        setTexts(prev => prev.map(text => 
-          selectedElements.has(text.id)
-            ? { ...text, position: { x: text.position.x + movement.x, y: text.position.y + movement.y } }
-            : text
-        ));
-        setImages(prev => prev.map(img =>
-          selectedElements.has(img.id)
-            ? { ...img, position: { x: img.position.x + movement.x, y: img.position.y + movement.y } }
-            : img
-        ));
-      }
-
-      // УДАЛЕНИЕ DELETE/BACKSPACE
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElements.size > 0) {
-        e.preventDefault();
-        if (window.confirm(`Удалить ${selectedElements.size} элементов?`)) {
-          setCards(prev => prev.filter(card => !selectedElements.has(card.id)));
-          setTexts(prev => prev.filter(text => !selectedElements.has(text.id)));
-          setImages(prev => prev.filter(img => !selectedElements.has(img.id)));
-          // УДАЛЯЕМ СОЕДИНЕНИЯ С УДАЛЕННЫМИ ЭЛЕМЕНТАМИ
-          setConnections(prev => prev.filter(conn => 
-            !selectedElements.has(conn.start.elementId) && !selectedElements.has(conn.end.elementId)
-          ));
-          setSelectedElements(new Set());
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedElements, editingElementId]);
+    const allElementIds = new Set(getAllElements().map(el => el.id));
+    setConnections(prev => prev.filter(conn => 
+      allElementIds.has(conn.start.elementId) && allElementIds.has(conn.end.elementId)
+    ));
+  }, [cards, texts, images, getAllElements]);
 
   // TOOLBAR ACTIONS
   const handleSelectArea = () => {
     setIsSelecting(true);
     setIsMovingCanvas(false);
     setIsConnecting(false);
+    setConnectingStart(null);
+    setTempConnectionEnd(null);
+    setSelectedElements(new Set());
   };
 
   const handleMoveCanvas = () => {
     setIsMovingCanvas(!isMovingCanvas);
     setIsSelecting(false);
     setIsConnecting(false);
+    setConnectingStart(null);
+    setTempConnectionEnd(null);
+    setSelectedElements(new Set());
   };
 
   const handleAddCard = () => {
     const newCard = {
-      id: Date.now(),
+      id: `card-${Date.now()}`,
       title: 'Новая карточка',
       articleUrl: '',
       date: new Date().toISOString().split('T')[0],
@@ -324,7 +359,7 @@ const InvestigationBoard = () => {
 
   const handleAddText = () => {
     const newText = {
-      id: Date.now(),
+      id: `text-${Date.now()}`,
       content: 'Новый текст',
       position: { x: 100, y: 150 }
     };
@@ -333,10 +368,17 @@ const InvestigationBoard = () => {
   };
 
   const handleConnect = () => {
-    setIsConnecting(!isConnecting);
+    const newConnectingState = !isConnecting;
+    console.log('🔗 Переключение режима соединения:', newConnectingState);
+    setIsConnecting(newConnectingState);
     setIsMovingCanvas(false);
     setIsSelecting(false);
-    setConnectingStart(null);
+    
+    if (!newConnectingState) {
+      setConnectingStart(null);
+      setTempConnectionEnd(null);
+      setSelectedElements(new Set());
+    }
   };
 
   const handleAddPhoto = () => {
@@ -347,7 +389,7 @@ const InvestigationBoard = () => {
       const file = e.target.files[0];
       if (file) {
         const newImage = {
-          id: Date.now(),
+          id: `image-${Date.now()}`,
           file,
           url: URL.createObjectURL(file),
           position: { x: 100, y: 200 }
@@ -365,21 +407,18 @@ const InvestigationBoard = () => {
     setIsConnecting(false);
     setConnectingStart(null);
     setTempConnectionEnd(null);
+    setSelectedElements(new Set());
   };
 
   // ОБРАБОТЧИКИ РЕДАКТИРОВАНИЯ ЭЛЕМЕНТОВ
   const handleCardEdit = (id, newData) => {
     if (newData._delete) {
       setCards(prev => prev.filter(card => card.id !== id));
-      setConnections(prev => prev.filter(conn => 
-        conn.start.elementId !== id && conn.end.elementId !== id
-      ));
       setEditingElementId(null);
     } else {
       setCards(prev => prev.map(card => 
         card.id === id ? { ...card, ...newData } : card
       ));
-      // Если это сохранение - выходим из режима редактирования
       if (!newData.isEditing) {
         setEditingElementId(null);
       }
@@ -389,15 +428,11 @@ const InvestigationBoard = () => {
   const handleTextEdit = (id, newData) => {
     if (newData._delete) {
       setTexts(prev => prev.filter(text => text.id !== id));
-      setConnections(prev => prev.filter(conn => 
-        conn.start.elementId !== id && conn.end.elementId !== id
-      ));
       setEditingElementId(null);
     } else {
       setTexts(prev => prev.map(text => 
         text.id === id ? { ...text, content: newData } : text
       ));
-      // Если это сохранение - выходим из режима редактирования
       if (typeof newData === 'string') {
         setEditingElementId(null);
       }
@@ -407,9 +442,6 @@ const InvestigationBoard = () => {
   const handleImageEdit = (id, newData) => {
     if (newData._delete) {
       setImages(prev => prev.filter(img => img.id !== id));
-      setConnections(prev => prev.filter(conn => 
-        conn.start.elementId !== id && conn.end.elementId !== id
-      ));
       setEditingElementId(null);
     } else {
       setImages(prev => prev.map(img => 
@@ -418,9 +450,8 @@ const InvestigationBoard = () => {
     }
   };
 
-  // ВЫДЕЛЕНИЕ ЭЛЕМЕНТОВ - ИСПРАВЛЕННАЯ ЛОГИКА
+  // ВЫДЕЛЕНИЕ ЭЛЕМЕНТОВ
   const handleElementSelect = (id, isMultiSelect = false) => {
-    // Если элемент уже в режиме редактирования - не выделяем его
     if (editingElementId === id) return;
 
     setSelectedElements(prev => {
@@ -434,30 +465,13 @@ const InvestigationBoard = () => {
     });
   };
 
-  // ОБРАБОТЧИК НАЧАЛА РЕДАКТИРОВАНИЯ
   const handleElementEditStart = (id) => {
     setEditingElementId(id);
-    // Снимаем выделение с редактируемого элемента
-    setSelectedElements(prev => {
-      const newSelection = new Set(prev);
-      newSelection.delete(id);
-      return newSelection;
-    });
+    setSelectedElements(new Set());
   };
 
-  // ОБРАБОТЧИК ЗАВЕРШЕНИЯ РЕДАКТИРОВАНИЯ
   const handleElementEditEnd = () => {
     setEditingElementId(null);
-  };
-
-  // ПОЛУЧЕНИЕ ПОЗИЦИЙ ДЛЯ СОЕДИНЕНИЙ (АВТОМАТИЧЕСКИ ОБНОВЛЯЕТСЯ ПРИ ПЕРЕМЕЩЕНИИ ЭЛЕМЕНТОВ)
-  const getElementPosition = (elementId, type) => {
-    let element;
-    if (type === 'card') element = cards.find(card => card.id === elementId);
-    else if (type === 'text') element = texts.find(text => text.id === elementId);
-    else if (type === 'image') element = images.find(img => img.id === elementId);
-    
-    return element ? getElementCenter({ ...element, type }) : null;
   };
 
   // КУРСОР
@@ -473,8 +487,11 @@ const InvestigationBoard = () => {
 
   return (
     <div className="relative w-full h-screen bg-[#151516] overflow-hidden">
-      <Navbar />
-      {/* INFINITE CANVAS */}
+      <Navbar 
+        currentBoardName={getBoardNameById(boardId)} 
+        boards={[]}
+      />
+      
       <div
         ref={canvasRef}
         className="absolute inset-0"
@@ -482,15 +499,10 @@ const InvestigationBoard = () => {
           transform: `translate(${canvasOffset.x}px, ${canvasOffset.y}px)`,
           width: '5000px',
           height: '5000px',
-          background: `
-            linear-gradient(90deg, #252527 1px, transparent 1px),
-            linear-gradient(180deg, #252527 1px, transparent 1px)
-          `,
-          backgroundSize: '20px 20px',
+          backgroundColor: '#151516',
           cursor: getCanvasCursor()
         }}
         onMouseDown={handleCanvasMouseDown}
-        onDoubleClick={handleCanvasDoubleClick}
       >
         {/* SELECTION RECTANGLE */}
         {selectionRect && (
@@ -505,84 +517,94 @@ const InvestigationBoard = () => {
           />
         )}
 
-        {/* TEMP CONNECTION LINE */}
-        {connectingStart && tempConnectionEnd && (
+        {/* ВРЕМЕННАЯ ЛИНИЯ СОЕДИНЕНИЯ */}
+        {isConnecting && connectingStart && tempConnectionEnd && (
           <ConnectionLine
-            start={{ x: connectingStart.x, y: connectingStart.y }}
-            end={tempConnectionEnd}
+            start={tempConnectionEnd.start}
+            end={tempConnectionEnd.end}
             isTemp={true}
           />
         )}
 
-        {/* PERMANENT CONNECTIONS - АВТОМАТИЧЕСКИ ОБНОВЛЯЮТСЯ ПРИ ПЕРЕМЕЩЕНИИ ЭЛЕМЕНТОВ */}
+        {/* ПОСТОЯННЫЕ СОЕДИНЕНИЯ */}
         {connections.map(connection => {
-          const startPos = getElementPosition(connection.start.elementId, connection.start.type);
-          const endPos = getElementPosition(connection.end.elementId, connection.end.type);
-          
-          if (!startPos || !endPos) return null;
+          const positions = getConnectionPositions(connection);
+          if (!positions) return null;
           
           return (
             <ConnectionLine
               key={connection.id}
-              start={startPos}
-              end={endPos}
+              start={positions.start}
+              end={positions.end}
+              isTemp={false}
             />
           );
         })}
 
-        {/* CARDS */}
+        {/* CARDS - ДОБАВЛЯЕМ pointer-events: none В РЕЖИМЕ СОЕДИНЕНИЯ */}
         {cards.map(card => (
-          <CaseCard
+          <div 
             key={card.id}
-            id={card.id}
-            title={card.title}
-            articleUrl={card.articleUrl}
-            date={card.date}
-            trustLevel={card.trustLevel}
-            initialPosition={card.position}
-            onEdit={handleCardEdit}
-            onEditStart={handleElementEditStart}
-            onEditEnd={handleElementEditEnd}
-            isEditMode={true}
-            isSelected={selectedElements.has(card.id)}
-            onSelect={handleElementSelect}
-            isEditing={editingElementId === card.id}
-          />
+            className={isConnecting ? "pointer-events-none" : ""}
+          >
+            <CaseCard
+              id={card.id}
+              title={card.title}
+              articleUrl={card.articleUrl}
+              date={card.date}
+              trustLevel={card.trustLevel}
+              initialPosition={card.position}
+              onEdit={handleCardEdit}
+              onEditStart={handleElementEditStart}
+              onEditEnd={handleElementEditEnd}
+              isEditMode={true}
+              isSelected={selectedElements.has(card.id)}
+              onSelect={handleElementSelect}
+              isEditing={editingElementId === card.id}
+            />
+          </div>
         ))}
 
-        {/* TEXTS */}
+        {/* TEXTS - ДОБАВЛЯЕМ pointer-events: none В РЕЖИМЕ СОЕДИНЕНИЯ */}
         {texts.map(text => (
-          <DraggableText
+          <div 
             key={text.id}
-            id={text.id}
-            content={text.content}
-            position={text.position}
-            onEdit={handleTextEdit}
-            onEditStart={handleElementEditStart}
-            onEditEnd={handleElementEditEnd}
-            isEditMode={true}
-            isSelected={selectedElements.has(text.id)}
-            onSelect={handleElementSelect}
-            isEditing={editingElementId === text.id}
-          />
+            className={isConnecting ? "pointer-events-none" : ""}
+          >
+            <DraggableText
+              id={text.id}
+              content={text.content}
+              position={text.position}
+              onEdit={handleTextEdit}
+              onEditStart={handleElementEditStart}
+              onEditEnd={handleElementEditEnd}
+              isEditMode={true}
+              isSelected={selectedElements.has(text.id)}
+              onSelect={handleElementSelect}
+              isEditing={editingElementId === text.id}
+            />
+          </div>
         ))}
 
-        {/* IMAGES */}
+        {/* IMAGES - ДОБАВЛЯЕМ pointer-events: none В РЕЖИМЕ СОЕДИНЕНИЯ */}
         {images.map(image => (
-          <DraggableImage
+          <div 
             key={image.id}
-            id={image.id}
-            url={image.url}
-            position={image.position}
-            onEdit={handleImageEdit}
-            isEditMode={true}
-            isSelected={selectedElements.has(image.id)}
-            onSelect={handleElementSelect}
-          />
+            className={isConnecting ? "pointer-events-none" : ""}
+          >
+            <DraggableImage
+              id={image.id}
+              url={image.url}
+              position={image.position}
+              onEdit={handleImageEdit}
+              isEditMode={true}
+              isSelected={selectedElements.has(image.id)}
+              onSelect={handleElementSelect}
+            />
+          </div>
         ))}
       </div>
 
-      {/* TOOLBAR */}
       <Toolbar
         onSelectArea={handleSelectArea}
         onMoveCanvas={handleMoveCanvas}
@@ -593,9 +615,9 @@ const InvestigationBoard = () => {
         isMovingCanvas={isMovingCanvas}
       />
 
-      {/* STATUS BAR */}
       <div className="fixed top-20 left-4 bg-black bg-opacity-70 text-white p-3 rounded-lg text-sm font-medium z-40">
         <div>Выбрано: <span className="text-blue-400">{selectedElements.size}</span></div>
+        <div>Соединений: <span className="text-green-400">{connections.length}</span></div>
         {editingElementId && <div className="text-orange-400">• Редактирование элемента</div>}
         {isSelecting && <div className="text-green-400">• Выделение</div>}
         {isMovingCanvas && <div className="text-yellow-400">• Перемещение канваса</div>}
@@ -613,5 +635,15 @@ const InvestigationBoard = () => {
     </div>
   );
 };
+
+function getBoardNameById(boardId) {
+  const boards = {
+    '1': 'Расследование коррупции',
+    '2': 'Финансовые схемы', 
+    '3': 'Политические связи',
+    '4': 'Бизнес-структуры',
+  };
+  return boards[boardId] || `Доска ${boardId}`;
+}
 
 export default InvestigationBoard;
