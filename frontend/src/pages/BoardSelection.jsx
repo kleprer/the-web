@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusOutlined } from '@ant-design/icons';
 import { UserOutlined } from '@ant-design/icons';
+import Navbar from '../components/Navbar';
 
 const BoardSelection = () => {
   const navigate = useNavigate();
@@ -35,32 +36,12 @@ const BoardSelection = () => {
   const displayBoards = recentBoards.slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-[#151516] text-white">
+    <div className=" bg-[#151516] text-white ">
       {/* Navbar */}
-      <nav className="bg-transparent p-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center">
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-              <UserOutlined className="text-black text-lg" />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col items-end">
-              <p className="font-comorant-sc font-semibold text-2xl text-white leading-none">
-                ПАУТИНА
-              </p>
-              <p className="font-inter font-light text-sm text-white leading-none mt-1">
-                ассистент журналиста
-              </p>
-            </div>
-            <img src="/logo.svg" alt="Логотип" className="h-10 w-10" />
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Main Content */}
-      <div className="container mx-auto px-8 py-12">
+      <div className="container mx-auto px-8 py-12 mt-[5rem]">
         <h1 className="text-3xl font-semibold text-center mb-12">Выбор доски расследования</h1>
         
         <div className="flex gap-8 justify-center items-start flex-col md:flex-row">

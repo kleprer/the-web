@@ -37,14 +37,23 @@ const Auth = () => {
     <div className="bg-[#151516]">
       <Navbar />
       {/* Левая половина - форма */}
-      <div className="w-1/2 flex items-center justify-center p-8">
-        <AuthForm
-          isLogin={isLogin}
-          formData={formData}
-          onInputChange={handleInputChange}
-          onSubmit={handleSubmit}
-          onSwitchMode={handleSwitchMode}
-        />
+      <div className="flex items-end justify-end absolute inset-0 gap-[10rem]">
+        <div className="flex-1 flex justify-center pb-[14rem] pl-[15rem] w-full">
+          <AuthForm
+            isLogin={isLogin}
+            formData={formData}
+            onInputChange={handleInputChange}
+            onSubmit={handleSubmit}
+            onSwitchMode={handleSwitchMode}
+          />
+        </div>
+        <div className="h-[45rem]">
+          <img 
+            src="/art.svg" 
+            alt="Art"
+            className="w-full h-full object-cover"
+          />
+        </div>
       </div>
     </div>
   );

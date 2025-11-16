@@ -12,7 +12,7 @@ const AuthForm = ({
   onSwitchMode 
 }) => {
   return (
-    <div className="border border-white border-opacity-50 rounded-[20px] bg-transparent p-8 w-full max-w-md">
+    <div className="border border-white border-opacity-50 rounded-[20px] bg-transparent p-8 w-[30rem]">
       <h2 className="text-2xl font-semibold text-white text-center mb-8">
         {isLogin ? 'Войдите в аккаунт' : 'Создайте аккаунт'}
       </h2>
