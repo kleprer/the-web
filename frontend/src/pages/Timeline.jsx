@@ -103,7 +103,7 @@ const Timeline = () => {
         {/* Бесконечная горизонтальная линия */}
         <div
           ref={timelineRef}
-          className="absolute top-1/2 left-0 right-0 h-0.5 bg-white transform -translate-y-1/2"
+          className="absolute top-1/2 left-1/3 right-0 h-0.5 bg-white transform -translate-y-1/2"
           style={{
             transform: `translateX(${timelinePosition}px) translateY(-50%)`,
             minWidth: '2000px' // Минимальная ширина для бесконечности
