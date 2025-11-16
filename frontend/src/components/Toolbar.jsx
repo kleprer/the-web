@@ -28,7 +28,7 @@ const Toolbar = ({
           className="flex flex-col items-center gap-1 hover:opacity-70 transition-opacity"
         >
           <SelectOutlined className="text-2xl text-gray-800" />
-          <span className="text-xs text-gray-800">Select area</span>
+          <span className="text-xs text-gray-800">Выбрать область</span>
         </button>
 
         {/* Move Canvas */}

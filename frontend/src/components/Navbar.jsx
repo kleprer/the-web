@@ -1,15 +1,12 @@
-// components/Navbar.jsx
 import React from 'react';
-import { Link, useParams } from 'react-router-dom';
 import { UserOutlined } from '@ant-design/icons';
 
 const Navbar = () => {
-  const { boardId } = useParams();
   const isLoggedIn = true; // заглушка
 
   return (
-    <nav className="bg-transparent p-4">
-      <div className="max-w-7xl mx-auto flex justify-between items-center">
+    <nav className="bg-[#151516] p-4 relative z-50 border-b border-gray-700"> {/* Добавил border */}
+      <div className="bg-[#151516] max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center">
           {isLoggedIn && (
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
