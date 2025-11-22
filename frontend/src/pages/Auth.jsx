@@ -21,12 +21,6 @@ const Auth = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Логика авторизации/регистрации
-    console.log(isLogin ? 'Login attempt:' : 'Register attempt:', formData);
-    navigate('/boards');
-  };
 
   const handleSwitchMode = () => {
     setIsLogin(!isLogin);
@@ -43,7 +37,7 @@ const Auth = () => {
             isLogin={isLogin}
             formData={formData}
             onInputChange={handleInputChange}
-            onSubmit={handleSubmit}
+            onSubmit={() => {}}
             onSwitchMode={handleSwitchMode}
           />
         </div>

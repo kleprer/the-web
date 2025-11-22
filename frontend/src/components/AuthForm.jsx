@@ -1,8 +1,10 @@
 // components/AuthForm.jsx
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import InputField from './InputField';
 import ButtonFilled from './ButtonFilled';
 import ButtonOutline from './ButtonOutline';
+import { apiService } from '../services/api';
 
 const AuthForm = ({ 
   isLogin, 
@@ -11,13 +13,58 @@ const AuthForm = ({
   onSubmit, 
   onSwitchMode 
 }) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      let response;
+      
+      if (isLogin) {
+        response = await apiService.login({
+          username: formData.login,
+          password: formData.password
+        });
+      } else {
+        response = await apiService.signup({
+          username: formData.username,
+          password: formData.password,
+          email: formData.email
+        });
+      }
+
+      // Сохраняем пользователя в localStorage
+      localStorage.setItem('user', JSON.stringify(response));
+      localStorage.setItem('userId', response.id);
+      
+      // Переходим к доскам
+      navigate('/boards');
+      
+    } catch (err) {
+      setError(err.message || 'Произошла ошибка');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="border border-white border-opacity-50 rounded-[20px] bg-transparent p-8 w-[30rem]">
       <h2 className="text-2xl font-semibold text-white text-center mb-8">
         {isLogin ? 'Войдите в аккаунт' : 'Создайте аккаунт'}
       </h2>
 
-      <form onSubmit={onSubmit} className="space-y-6">
+      {error && (
+        <div className="bg-red-500 text-white p-3 rounded mb-4 text-sm">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* Поле email только для регистрации */}
         {!isLogin && (
           <div>
@@ -28,6 +75,7 @@ const AuthForm = ({
               onChange={(e) => onInputChange('email', e.target.value)}
               placeholder="Введите вашу почту"
               className="w-full"
+              required
             />
           </div>
         )}
@@ -42,6 +90,7 @@ const AuthForm = ({
             onChange={(e) => onInputChange(isLogin ? 'login' : 'username', e.target.value)}
             placeholder={isLogin ? 'Введите ваш логин' : 'Придумайте логин'}
             className="w-full"
+            required
           />
         </div>
 
@@ -54,6 +103,8 @@ const AuthForm = ({
             onChange={(e) => onInputChange('password', e.target.value)}
             placeholder={isLogin ? 'Введите ваш пароль' : 'Придумайте пароль'}
             className="w-full"
+            required
+            minLength="3"
           />
         </div>
 
@@ -61,8 +112,9 @@ const AuthForm = ({
         <ButtonFilled
           type="submit"
           className="w-full"
+          disabled={loading}
         >
-          {isLogin ? 'Войти' : 'Зарегистрироваться'}
+          {loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}
         </ButtonFilled>
 
         {/* Кнопка переключения */}
@@ -71,6 +123,7 @@ const AuthForm = ({
             type="button"
             onClick={onSwitchMode}
             className="w-full"
+            disabled={loading}
           >
             {isLogin ? 'Зарегистрироваться' : 'Есть аккаунт'}
           </ButtonOutline>
