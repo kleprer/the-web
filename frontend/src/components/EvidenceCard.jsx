@@ -1,65 +1,88 @@
-// components/EvidenceCard.jsx
+// frontend/src/components/EvidenceCard.jsx
 import React from 'react';
 import { 
-  FilePdfOutlined, 
-  FileImageOutlined, 
-  FileWordOutlined, 
-  FileExcelOutlined, 
-  PlayCircleOutlined, 
-  CustomerServiceOutlined,
-  FileOutlined,
-  FolderOutlined
+  FileTextOutlined, 
+  PictureOutlined, 
+  VideoCameraOutlined, 
+  CustomerServiceOutlined, 
+  DeleteOutlined 
 } from '@ant-design/icons';
 
-const EvidenceCard = ({ name, type, size }) => {
-  const getFileIcon = () => {
-    switch (type) {
-      case 'pdf':
-        return <FilePdfOutlined className="text-red-500 text-2xl" />;
-      case 'image':
-        return <FileImageOutlined className="text-green-500 text-2xl" />;
-      case 'word':
-        return <FileWordOutlined className="text-blue-500 text-2xl" />;
-      case 'excel':
-        return <FileExcelOutlined className="text-green-600 text-2xl" />;
-      case 'video':
-        return <PlayCircleOutlined className="text-purple-500 text-2xl" />;
-      case 'audio':
-        return <CustomerServiceOutlined className="text-orange-500 text-2xl" />;
-      case 'folder':
-        return <FolderOutlined className="text-yellow-500 text-2xl" />;
-      default:
-        return <FileOutlined className="text-gray-500 text-2xl" />;
+const EvidenceCard = ({ file, onDelete }) => {
+  const getFileIcon = (fileType, mimeType) => {
+    if (fileType === 'image') return <PictureOutlined className="text-2xl" />;
+    if (fileType === 'video') return <VideoCameraOutlined className="text-2xl" />;
+    if (fileType === 'audio') return <CustomerServiceOutlined className="text-2xl" />;
+    if (mimeType === 'application/pdf') return <FileTextOutlined className="text-2xl text-red-500" />;
+    return <FileTextOutlined className="text-2xl" />;
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/files/download/${file.id}`);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+    } catch (error) {
+      console.error('Ошибка скачивания:', error);
     }
   };
 
-  const getFileExtension = (fileName) => {
-    return fileName.split('.').pop().toUpperCase();
-  };
-
   return (
-    <div className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-200">
+    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow">
       <div className="flex flex-col items-center text-center">
-        {/* Иконка */}
-        <div className="mb-3">
-          {getFileIcon()}
+        <div className="text-gray-600 mb-2">
+          {getFileIcon(file.file_type, file.mime_type)}
         </div>
         
-        {/* Название файла */}
-        <div className="text-sm font-medium text-gray-800 mb-1 truncate w-full">
-          {name}
-        </div>
+        <h3 className="font-medium text-gray-800 text-sm mb-1 truncate w-full">
+          {file.title || file.filename}
+        </h3>
         
-        {/* Расширение и размер */}
-        <div className="text-xs text-gray-500">
-          {type !== 'folder' && (
-            <>
-              {getFileExtension(name)} • {size}
-            </>
-          )}
-          {type === 'folder' && (
-            <>Папка</>
-          )}
+        <p className="text-xs text-gray-500 mb-2">
+          {formatFileSize(file.file_size)}
+        </p>
+        
+        {file.description && (
+          <p className="text-xs text-gray-600 mb-3 line-clamp-2">
+            {file.description}
+          </p>
+        )}
+
+        <div className="flex gap-2 w-full">
+          <button
+            onClick={handleDownload}
+            className="flex-1 bg-blue-500 text-white py-1 px-2 rounded text-xs hover:bg-blue-600 transition-colors"
+          >
+            Скачать
+          </button>
+          
+          <button
+            onClick={onDelete}
+            className="bg-red-500 text-white py-1 px-2 rounded text-xs hover:bg-red-600 transition-colors"
+          >
+            <DeleteOutlined />
+          </button>
+        </div>
+
+        <div className="mt-2 text-xs text-gray-400">
+          {new Date(file.uploaded_at).toLocaleDateString()}
         </div>
       </div>
     </div>

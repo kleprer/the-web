@@ -1,4 +1,4 @@
-# models.py
+# backend/models/models.py
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, JSON, Boolean
 from database import Base
 
@@ -19,6 +19,7 @@ class Investigation(Base):
     updated_at = Column(DateTime)
     user_id = Column(Integer, ForeignKey("users.id"))
     is_archived = Column(Boolean, default=False)
+    board_data = Column(JSON, nullable=True)  # { cards: [], texts: [], images: [], connections: [] }
 
 class File(Base):
     __tablename__ = "files"
@@ -37,10 +38,6 @@ class File(Base):
     title = Column(String)
     description = Column(Text)
     tags = Column(JSON)
-    
-    # for documents specifically
-    page_count = Column(Integer, nullable=True)  # Only for PDFs/docs
-    extracted_text = Column(Text, nullable=True) # Only if we do OCR
 
 class TimelineEvent(Base):
     __tablename__ = "timeline_events"
@@ -50,7 +47,7 @@ class TimelineEvent(Base):
     description = Column(Text)
     event_date = Column(DateTime)
     created_at = Column(DateTime)
-    attached_files = Column(JSON)
+    attached_files = Column(JSON)  # IDs прикрепленных файлов
 
 class Note(Base):
     __tablename__ = "notes"
@@ -59,5 +56,4 @@ class Note(Base):
     title = Column(String)
     content = Column(Text)
     created_at = Column(DateTime)
-    attached_files = Column(JSON)
     tags = Column(JSON)

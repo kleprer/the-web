@@ -1,3 +1,4 @@
+// frontend/src/services/api.js
 const API_BASE_URL = 'http://localhost:8000';
 
 class ApiService {
@@ -7,7 +8,10 @@ class ApiService {
 
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
+    
     const config = {
+      mode: 'cors',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
@@ -15,22 +19,33 @@ class ApiService {
       ...options,
     };
 
+    if (options.body && ['POST', 'PUT', 'PATCH'].includes(options.method)) {
+      config.body = options.body;
+    }
+
+    console.log('🔄 API запрос:', { url, config });
+
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
+      console.log('📨 Ответ сервера:', response);
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Request failed');
+        const errorText = await response.text();
+        console.error('❌ Ошибка API:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
+      const data = await response.json();
+      console.log('📊 Данные ответа:', data);
       return data;
+
     } catch (error) {
-      console.error('API Request failed:', error);
+      console.error('💥 Ошибка запроса:', error);
       throw error;
     }
   }
 
-  // AUTH
+  // 🔥 ИСПРАВЛЕННЫЕ МЕТОДЫ АВТОРИЗАЦИИ
   async login(credentials) {
     return this.request('/auth/login', {
       method: 'POST',
@@ -57,10 +72,44 @@ class ApiService {
     });
   }
 
-  async updateInvestigation(id, investigationData) {
-    return this.request(`/investigations/${id}`, {
+  async getInvestigation(investigationId) {
+    return this.request(`/investigations/${investigationId}`);
+  }
+
+  // BOARD STATE
+  async saveBoardState(investigationId, boardData) {
+    return this.request(`/board/${investigationId}/state`, {
       method: 'PUT',
-      body: JSON.stringify(investigationData),
+      body: JSON.stringify({ board_data: boardData }),
+    });
+  }
+
+  async getBoardState(investigationId) {
+    return this.request(`/board/${investigationId}/state`);
+  }
+
+  // TIMELINE EVENTS
+  async getTimelineEvents(investigationId) {
+    return this.request(`/timelines/${investigationId}/events`);
+  }
+
+  async createTimelineEvent(investigationId, eventData) {
+    return this.request(`/timelines/${investigationId}/events`, {
+      method: 'POST',
+      body: JSON.stringify(eventData),
+    });
+  }
+
+  async updateTimelineEvent(eventId, eventData) {
+    return this.request(`/timelines/events/${eventId}`, {
+      method: 'PUT',
+      body: JSON.stringify(eventData),
+    });
+  }
+
+  async deleteTimelineEvent(eventId) {
+    return this.request(`/timelines/events/${eventId}`, {
+      method: 'DELETE',
     });
   }
 
@@ -92,6 +141,12 @@ class ApiService {
     return this.request(endpoint);
   }
 
+  async deleteFile(fileId) {
+    return this.request(`/files/${fileId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // NOTES
   async getNotes(investigationId) {
     return this.request(`/notes/${investigationId}/notes`);
@@ -114,18 +169,6 @@ class ApiService {
   async deleteNote(noteId) {
     return this.request(`/notes/notes/${noteId}`, {
       method: 'DELETE',
-    });
-  }
-
-  // TIMELINE EVENTS
-  async getTimelineEvents(investigationId) {
-    return this.request(`/timelines/${investigationId}/events`);
-  }
-
-  async createTimelineEvent(investigationId, eventData) {
-    return this.request(`/timelines/${investigationId}/events`, {
-      method: 'POST',
-      body: JSON.stringify(eventData),
     });
   }
 }

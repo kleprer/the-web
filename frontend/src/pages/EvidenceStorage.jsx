@@ -1,98 +1,106 @@
-// pages/EvidenceStorage.jsx
-import React, { useState } from 'react';
+// frontend/src/pages/EvidenceStorage.jsx
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { ExportOutlined, FolderAddOutlined, FileAddOutlined } from '@ant-design/icons';
 import EvidenceCard from '../components/EvidenceCard';
 import ExportForm from '../components/ExportForm';
 import Navbar from '../components/Navbar';
+import { apiService } from '../services/api';
+import { useAuth } from '../App';
 
 const EvidenceStorage = () => {
-  const [currentCase, setCurrentCase] = useState('Расследование коррупции в мэрии');
+  const { boardId } = useParams();
+  const { user } = useAuth();
+  const [investigation, setInvestigation] = useState(null);
+  const [files, setFiles] = useState([]);
   const [showExportForm, setShowExportForm] = useState(false);
-  const [evidences, setEvidences] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock данные доказательств
-  const mockEvidences = [
-    { id: 1, name: 'bank_statement.pdf', type: 'pdf', size: '2.4 MB' },
-    { id: 2, name: 'witness_interview.mp3', type: 'audio', size: '15.7 MB' },
-    { id: 3, name: 'corruption_photo.jpg', type: 'image', size: '3.2 MB' },
-    { id: 4, name: 'financial_report.xlsx', type: 'excel', size: '1.1 MB' },
-    { id: 5, name: 'email_correspondence.pdf', type: 'pdf', size: '4.8 MB' },
-    { id: 6, name: 'surveillance_video.mp4', type: 'video', size: '45.2 MB' },
-    { id: 7, name: 'contract_scan.pdf', type: 'pdf', size: '3.7 MB' },
-    { id: 8, name: 'audio_notes.m4a', type: 'audio', size: '8.9 MB' },
-  ];
+  useEffect(() => {
+    if (boardId) {
+      loadInvestigationData();
+      loadFiles();
+    }
+  }, [boardId]);
 
-  // Загрузка данных при монтировании
-  React.useEffect(() => {
-    setEvidences(mockEvidences);
-  }, []);
-
-  const handleCreateFolder = () => {
-    const folderName = prompt('Введите название папки:');
-    if (folderName) {
-      const newFolder = {
-        id: Date.now(),
-        name: folderName,
-        type: 'folder',
-        size: '0 B'
-      };
-      setEvidences(prev => [...prev, newFolder]);
+  const loadInvestigationData = async () => {
+    try {
+      const data = await apiService.getInvestigation(boardId);
+      setInvestigation(data);
+    } catch (error) {
+      console.error('Ошибка загрузки расследования:', error);
     }
   };
 
-  const handleAddFile = () => {
+  const loadFiles = async () => {
+    try {
+      const filesData = await apiService.getFiles(boardId);
+      setFiles(filesData);
+    } catch (error) {
+      console.error('Ошибка загрузки файлов:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddFile = async () => {
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const files = Array.from(e.target.files);
-      files.forEach(file => {
-        const newFile = {
-          id: Date.now() + Math.random(),
-          name: file.name,
-          type: getFileType(file.name),
-          size: formatFileSize(file.size),
-          file: file
-        };
-        setEvidences(prev => [...prev, newFile]);
-      });
+      
+      for (const file of files) {
+        try {
+          await apiService.uploadFile(boardId, file, {
+            title: file.name,
+            description: 'Добавлен через хранилище доказательств',
+            tags: ['evidence']
+          });
+        } catch (error) {
+          console.error('Ошибка загрузки файла:', error);
+        }
+      }
+      
+      // Перезагружаем файлы после загрузки
+      loadFiles();
     };
     input.click();
   };
 
-  const getFileType = (fileName) => {
-    const ext = fileName.split('.').pop().toLowerCase();
-    if (['pdf'].includes(ext)) return 'pdf';
-    if (['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(ext)) return 'image';
-    if (['mp4', 'avi', 'mov', 'wmv'].includes(ext)) return 'video';
-    if (['mp3', 'wav', 'm4a', 'aac'].includes(ext)) return 'audio';
-    if (['xlsx', 'xls', 'csv'].includes(ext)) return 'excel';
-    if (['docx', 'doc'].includes(ext)) return 'word';
-    return 'file';
+  const handleDeleteFile = async (fileId) => {
+    try {
+      await apiService.deleteFile(fileId);
+      setFiles(prev => prev.filter(file => file.id !== fileId));
+    } catch (error) {
+      console.error('Ошибка удаления файла:', error);
+    }
   };
 
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  const handleCreateFolder = () => {
+    // Для папок можно создать отдельную таблицу в БД или использовать теги
+    console.log('Создание папки - функционал можно расширить');
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#D6D6D6]">
+        <Navbar currentBoardName={investigation?.title} />
+        <div className="pt-16 flex items-center justify-center">
+          <div className="text-gray-800">Загрузка...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#D6D6D6]">
-      {/* Навбар сверху */}
-      <Navbar 
-        currentBoardName={currentCase} 
-        boards={[]}
-      />
+      <Navbar currentBoardName={investigation?.title} />
 
-      <div className="flex-1 pt-16"> {/* Отступ сверху для навбара */}
-        
-        {/* Заголовок и кнопки действий */}
+      <div className="flex-1 pt-16">
         <div className="p-6 border-b border-gray-400 flex justify-between items-center">
           <h1 className="text-2xl font-semibold text-gray-800">
-            Хранилище доказательств - {currentCase}
+            Хранилище доказательств - {investigation?.title}
           </h1>
           
           <div className="flex gap-3">
@@ -120,28 +128,33 @@ const EvidenceStorage = () => {
           </div>
         </div>
 
-        {/* Сетка доказательств */}
         <div className="p-6 overflow-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {evidences.map(evidence => (
-              <EvidenceCard
-                key={evidence.id}
-                name={evidence.name}
-                type={evidence.type}
-                size={evidence.size}
-              />
-            ))}
-          </div>
+          {files.length === 0 ? (
+            <div className="text-center text-gray-600 py-12">
+              <p className="text-lg mb-4">Нет загруженных файлов</p>
+              <p className="text-sm">Добавьте файлы для начала работы с доказательствами</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {files.map(file => (
+                <EvidenceCard
+                  key={file.id}
+                  file={file}
+                  onDelete={() => handleDeleteFile(file.id)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Форма экспорта */}
       {showExportForm && (
         <ExportForm
-          evidences={evidences}
+          files={files}
+          investigation={investigation}
           onClose={() => setShowExportForm(false)}
-          onExport={(selectedEvidences) => {
-            console.log('Экспорт доказательств:', selectedEvidences);
+          onExport={(selectedFiles) => {
+            console.log('Экспорт файлов:', selectedFiles);
             setShowExportForm(false);
           }}
         />

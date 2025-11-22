@@ -1,3 +1,4 @@
+# backend/api/investigation.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -9,12 +10,21 @@ router = APIRouter(prefix="/investigations", tags=["investigations"])
 
 @router.post("/")
 def create_investigation(investigation: investigation.InvestigationCreate, db: Session = Depends(get_db)):
+    # 🔥 СОЗДАЕМ ПУСТЫЕ СТРУКТУРЫ ДАННЫХ ДЛЯ НОВОЙ ДОСКИ
+    initial_board_data = {
+        "cards": [],
+        "texts": [],
+        "images": [],
+        "connections": []
+    }
+    
     db_investigation = models.Investigation(
         title=investigation.title,
         description=investigation.description,
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        user_id=investigation.user_id
+        user_id=investigation.user_id,
+        board_data=initial_board_data  # 🔥 ДОБАВЛЯЕМ ПУСТЫЕ ДАННЫЕ ДОСКИ
     )
     
     db.add(db_investigation)

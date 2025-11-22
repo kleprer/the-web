@@ -1,123 +1,132 @@
-// pages/Timeline.jsx
-import React, { useState, useRef, useEffect } from 'react';
-import { PlusOutlined, UserOutlined } from '@ant-design/icons';
+// frontend/src/pages/Timeline.jsx
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { PlusOutlined } from '@ant-design/icons';
 import TimelineEvent from '../components/TimelineEvent';
 import NewEventForm from '../components/NewEventForm';
 import Navbar from '../components/Navbar';
+import { apiService } from '../services/api';
 
 const Timeline = () => {
+  const { boardId } = useParams();
   const [events, setEvents] = useState([]);
-  const [currentCase, setCurrentCase] = useState('Расследование коррупции в мэрии');
+  const [investigation, setInvestigation] = useState(null);
   const [showNewEventForm, setShowNewEventForm] = useState(false);
-  const [timelinePosition, setTimelinePosition] = useState(0);
-  const [isDraggingTimeline, setIsDraggingTimeline] = useState(false);
-  const timelineRef = useRef(null);
-  const dragStartRef = useRef(0);
+  const [loading, setLoading] = useState(true);
 
-  // Mock данные для событий
-  const mockEvents = [
-    {
-      id: 1,
-      date: '2024-01-15',
-      title: 'Обнаружены финансовые нарушения',
-      description: 'Выявлены несоответствия в отчетности'
-    },
-    {
-      id: 2,
-      date: '2024-01-20',
-      title: 'Проведен допрос свидетеля',
-      description: 'Свидетель подтвердил факты нарушений'
-    },
-    {
-      id: 3,
-      date: '2024-02-05',
-      title: 'Получены документы из банка',
-      description: 'Банковские выписки подтверждают транзакции'
-    }
-  ];
-
-  // Загрузка событий при монтировании
   useEffect(() => {
-    setEvents(mockEvents.sort((a, b) => new Date(a.date) - new Date(b.date)));
-  }, []);
-
-  // Drag handlers для горизонтального перемещения таймлайна
-  const handleTimelineMouseDown = (e) => {
-    setIsDraggingTimeline(true);
-    dragStartRef.current = e.clientX - timelinePosition;
-    e.preventDefault();
-  };
-
-  const handleTimelineMouseMove = (e) => {
-    if (!isDraggingTimeline) return;
-    setTimelinePosition(e.clientX - dragStartRef.current);
-  };
-
-  const handleTimelineMouseUp = () => {
-    setIsDraggingTimeline(false);
-  };
-
-  // Добавление event listeners для drag
-  useEffect(() => {
-    if (isDraggingTimeline) {
-      document.addEventListener('mousemove', handleTimelineMouseMove);
-      document.addEventListener('mouseup', handleTimelineMouseUp);
-      document.body.style.cursor = 'grabbing';
+    if (boardId) {
+      loadInvestigationData();
+      loadTimelineEvents();
     }
+  }, [boardId]);
 
-    return () => {
-      document.removeEventListener('mousemove', handleTimelineMouseMove);
-      document.removeEventListener('mouseup', handleTimelineMouseUp);
-      document.body.style.cursor = 'default';
-    };
-  }, [isDraggingTimeline]);
-
-  // Добавление нового события
-  const handleAddEvent = (newEvent) => {
-    const updatedEvents = [...events, newEvent].sort((a, b) => new Date(a.date) - new Date(b.date));
-    setEvents(updatedEvents);
-    setShowNewEventForm(false);
+  const loadInvestigationData = async () => {
+    try {
+      const data = await apiService.getInvestigation(boardId);
+      setInvestigation(data);
+    } catch (error) {
+      console.error('Ошибка загрузки расследования:', error);
+    }
   };
+
+  const loadTimelineEvents = async () => {
+    try {
+      const eventsData = await apiService.getTimelineEvents(boardId);
+      setEvents(eventsData);
+    } catch (error) {
+      console.error('Ошибка загрузки событий:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddEvent = async (newEventData) => {
+    try {
+      const createdEvent = await apiService.createTimelineEvent(boardId, newEventData);
+      setEvents(prev => [...prev, createdEvent].sort((a, b) => new Date(a.event_date) - new Date(b.event_date)));
+      setShowNewEventForm(false);
+    } catch (error) {
+      console.error('Ошибка создания события:', error);
+    }
+  };
+
+  const handleUpdateEvent = async (eventId, eventData) => {
+    try {
+      await apiService.updateTimelineEvent(eventId, eventData);
+      setEvents(prev => 
+        prev.map(event => 
+          event.id === eventId ? { ...event, ...eventData } : event
+        ).sort((a, b) => new Date(a.event_date) - new Date(b.event_date))
+      );
+    } catch (error) {
+      console.error('Ошибка обновления события:', error);
+    }
+  };
+
+  const handleDeleteEvent = async (eventId) => {
+    try {
+      await apiService.deleteTimelineEvent(eventId);
+      setEvents(prev => prev.filter(event => event.id !== eventId));
+    } catch (error) {
+      console.error('Ошибка удаления события:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#151516] text-white">
+        <Navbar />
+        <div className="container mx-auto px-8 mt-6 text-center">
+          Загрузка...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#151516] text-white">
-      {/* Navbar */}
-      <Navbar />
+      <Navbar currentBoardName={investigation?.title} />
 
-      {/* Кнопка добавления события */}
       <div className="container mx-auto px-8 mt-6">
-        <button
-          onClick={() => setShowNewEventForm(true)}
-          className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors mb-8"
-        >
-          <PlusOutlined className="text-lg" />
-          <span className="text-lg">Добавить событие</span>
-        </button>
-      </div>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-2xl font-semibold">
+            Таймлайн - {investigation?.title}
+          </h1>
+          
+          <button
+            onClick={() => setShowNewEventForm(true)}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <PlusOutlined className="text-lg" />
+            <span className="text-lg">Добавить событие</span>
+          </button>
+        </div>
 
-      {/* Timeline Container */}
-      <div 
-        className="relative h-96 overflow-hidden cursor-grab active:cursor-grabbing"
-        onMouseDown={handleTimelineMouseDown}
-      >
-        {/* Бесконечная горизонтальная линия */}
-        <div
-          ref={timelineRef}
-          className="absolute top-1/2 left-1/3 right-0 h-0.5 bg-white transform -translate-y-1/2"
-          style={{
-            transform: `translateX(${timelinePosition}px) translateY(-50%)`,
-            minWidth: '2000px' // Минимальная ширина для бесконечности
-          }}
-        >
-          {/* События на таймлайне */}
-          {events.map((event, index) => (
-            <TimelineEvent
-              key={event.id}
-              event={event}
-              position={index * 200} // Равномерное распределение
-              totalEvents={events.length}
-            />
-          ))}
+        {/* Timeline */}
+        <div className="relative">
+          {/* Timeline line */}
+          <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-white bg-opacity-30"></div>
+          
+          {/* Events */}
+          <div className="space-y-8 ml-16">
+            {events.length === 0 ? (
+              <div className="text-center text-gray-400 py-12">
+                <p className="text-lg mb-2">Нет событий в таймлайне</p>
+                <p className="text-sm">Добавьте первое событие чтобы начать</p>
+              </div>
+            ) : (
+              events.map((event, index) => (
+                <TimelineEvent
+                  key={event.id}
+                  event={event}
+                  onUpdate={(updatedData) => handleUpdateEvent(event.id, updatedData)}
+                  onDelete={() => handleDeleteEvent(event.id)}
+                  position={index}
+                />
+              ))
+            )}
+          </div>
         </div>
       </div>
 
