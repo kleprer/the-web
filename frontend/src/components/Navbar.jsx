@@ -1,24 +1,45 @@
 // components/Navbar.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../App'; // Импортируем хук
+import { useAuth } from '../App';
+import { apiService } from '../services/api';
 
-const Navbar = ({ currentBoardName = "Текущая доска", boards = [] }) => {
+const Navbar = ({ currentBoardName = "Текущая доска" }) => {
   const { boardId } = useParams();
   const navigate = useNavigate();
-  const { user, logout } = useAuth(); // Используем контекст
+  const { user, logout } = useAuth();
+  const [userBoards, setUserBoards] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Загружаем доски пользователя
+  useEffect(() => {
+    if (user?.id) {
+      loadUserBoards();
+    }
+  }, [user]);
+
+  const loadUserBoards = async () => {
+    try {
+      const boards = await apiService.getInvestigations(user.id);
+      setUserBoards(boards);
+    } catch (error) {
+      console.error('Ошибка загрузки досок пользователя:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
-    logout(); // Используем функцию из контекста
-    navigate('/auth'); // Переходим на страницу авторизации
+    logout();
+    navigate('/auth');
   };
 
   return (
     <nav className="bg-[#151516] p-4 relative z-50 border-b border-gray-700">
       <div className="bg-[#151516] max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center gap-4">
-          {user && ( // Показываем только если пользователь авторизован
+          {user && (
             <UserDropdown 
               userData={user}
               onLogout={handleLogout}
@@ -29,29 +50,40 @@ const Navbar = ({ currentBoardName = "Текущая доска", boards = [] })
           {boardId && (
             <BoardDropdown 
               currentBoardName={currentBoardName} 
-              boards={boards}
+              boards={userBoards}
               currentBoardId={boardId}
+              loading={loading}
             />
           )}
         </div>
 
         <div className="flex items-center gap-4">
-          <Link to="/timeline" className="flex flex-row items-end hover:opacity-80 transition-opacity">
-            <p className="font-comorant-sc font-semibold text-2xl text-white leading-none">
-              
-            </p>
-            <p className="font-inter font-light text-sm text-white leading-none mt-1">
-              таймлайны
-            </p>
-          </Link>
-          <Link to="/evidences" className="flex flex-row items-end hover:opacity-80 transition-opacity">
-            <p className="font-comorant-sc font-semibold text-2xl text-white leading-none">
-              
-            </p>
-            <p className="font-inter font-light text-sm text-white leading-none mt-1">
-              доказательства
-            </p>
-          </Link>
+          {boardId && (
+            <>
+              <Link 
+                to={`/timeline/${boardId}`} 
+                className="flex flex-row items-end hover:opacity-80 transition-opacity"
+              >
+                <p className="font-comorant-sc font-semibold text-2xl text-white leading-none">
+                  
+                </p>
+                <p className="font-inter font-light text-sm text-white leading-none mt-1">
+                  таймлайны
+                </p>
+              </Link>
+              <Link 
+                to={`/evidence/${boardId}`} 
+                className="flex flex-row items-end hover:opacity-80 transition-opacity"
+              >
+                <p className="font-comorant-sc font-semibold text-2xl text-white leading-none">
+                  
+                </p>
+                <p className="font-inter font-light text-sm text-white leading-none mt-1">
+                  доказательства
+                </p>
+              </Link>
+            </>
+          )}
           <Link to="/boards" className="flex flex-row items-end hover:opacity-80 transition-opacity">
             <p className="font-comorant-sc font-semibold text-2xl text-white leading-none">
               
@@ -87,7 +119,6 @@ const UserDropdown = ({ userData, onLogout }) => {
 
   return (
     <div className="relative">
-      {/* Иконка пользователя */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors cursor-pointer"
@@ -96,19 +127,16 @@ const UserDropdown = ({ userData, onLogout }) => {
         <UserOutlined className="text-black text-lg text-[24px]" />
       </button>
 
-      {/* Выпадающее меню */}
       {isOpen && (
         <div 
           className="absolute top-full left-0 mt-2 w-64 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50"
           onMouseLeave={() => setIsOpen(false)}
         >
           <div className="p-4">
-            {/* Заголовок */}
             <div className="text-sm text-gray-400 mb-2">
               Аккаунт
             </div>
             
-            {/* Информация о пользователе */}
             <div className="space-y-2 mb-4">
               <div className="flex items-center gap-2">
                 <span className="text-white font-medium text-sm">Логин:</span>
@@ -126,10 +154,8 @@ const UserDropdown = ({ userData, onLogout }) => {
               </div>
             </div>
 
-            {/* Разделитель */}
             <div className="border-t border-gray-700 my-3"></div>
 
-            {/* Кнопка выхода */}
             <button
               onClick={onLogout}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-sm font-medium"
@@ -144,19 +170,9 @@ const UserDropdown = ({ userData, onLogout }) => {
   );
 };
 
-// Компонент выпадающего списка досок (остается без изменений)
-const BoardDropdown = ({ currentBoardName, boards, currentBoardId }) => {
+// Компонент выпадающего списка досок с реальными данными
+const BoardDropdown = ({ currentBoardName, boards, currentBoardId, loading }) => {
   const [isOpen, setIsOpen] = React.useState(false);
-
-  // Mock данные для досок (можно заменить на реальные)
-  const mockBoards = [
-    { id: '1', name: 'Расследование коррупции', description: 'Основное расследование' },
-    { id: '2', name: 'Финансовые схемы', description: 'Анализ финансовых потоков' },
-    { id: '3', name: 'Политические связи', description: 'Связи между политиками' },
-    { id: '4', name: 'Бизнес-структуры', description: 'Анализ компаний' },
-  ];
-
-  const availableBoards = boards.length > 0 ? boards : mockBoards;
 
   return (
     <div className="relative">
@@ -179,28 +195,50 @@ const BoardDropdown = ({ currentBoardName, boards, currentBoardId }) => {
         <div className="absolute top-full left-0 mt-2 w-64 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
           <div className="p-2">
             <div className="text-xs text-gray-400 px-3 py-2 border-b border-gray-700">
-              Ваши доски
+              Ваши расследования
             </div>
             
-            {availableBoards.map((board) => (
-              <Link
-                key={board.id}
-                to={`/board/${board.id}`}
-                className={`block px-3 py-2 rounded-md hover:bg-gray-700 transition-colors ${
-                  board.id === currentBoardId ? 'bg-blue-600 hover:bg-blue-700' : ''
-                }`}
-                onClick={() => setIsOpen(false)}
-              >
-                <div className="font-medium text-white text-sm">
-                  {board.name}
-                </div>
-                {board.description && (
-                  <div className="text-xs text-gray-400 mt-1">
-                    {board.description}
-                  </div>
-                )}
-              </Link>
-            ))}
+            {loading ? (
+              <div className="px-3 py-4 text-center">
+                <div className="text-gray-400 text-sm">Загрузка...</div>
+              </div>
+            ) : boards.length === 0 ? (
+              <div className="px-3 py-4 text-center">
+                <div className="text-gray-400 text-sm mb-2">Нет созданных расследований</div>
+                <Link
+                  to="/boards"
+                  className="text-blue-400 hover:text-blue-300 text-xs"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Создать первое расследование
+                </Link>
+              </div>
+            ) : (
+              <>
+                {boards.map((board) => (
+                  <Link
+                    key={board.id}
+                    to={`/board/${board.id}`}
+                    className={`block px-3 py-2 rounded-md hover:bg-gray-700 transition-colors ${
+                      board.id.toString() === currentBoardId.toString() ? 'bg-blue-600 hover:bg-blue-700' : ''
+                    }`}
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <div className="font-medium text-white text-sm truncate">
+                      {board.title}
+                    </div>
+                    {board.description && (
+                      <div className="text-xs text-gray-400 mt-1 truncate">
+                        {board.description}
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-500 mt-1">
+                      {new Date(board.created_at).toLocaleDateString('ru-RU')}
+                    </div>
+                  </Link>
+                ))}
+              </>
+            )}
 
             <div className="border-t border-gray-700 mt-2 pt-2">
               <Link

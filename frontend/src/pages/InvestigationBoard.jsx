@@ -29,9 +29,11 @@ const InvestigationBoard = () => {
   const [tempConnectionEnd, setTempConnectionEnd] = useState(null);
   const [dragStart, setDragStart] = useState(null);
   const [editingElementId, setEditingElementId] = useState(null);
+  const [lastSaveTime, setLastSaveTime] = useState(0);
   
   const canvasRef = useRef(null);
   const saveTimeoutRef = useRef(null);
+  const needsSaveRef = useRef(false);
 
   // Загрузка данных доски
   useEffect(() => {
@@ -40,11 +42,9 @@ const InvestigationBoard = () => {
 
   const loadInvestigationData = async () => {
     try {
-      // Загружаем информацию о расследовании
       const investigationData = await apiService.getInvestigation(boardId);
       setInvestigation(investigationData);
 
-      // Загружаем состояние доски
       const boardState = await apiService.getBoardState(boardId);
       const boardData = boardState.board_data;
       
@@ -57,35 +57,47 @@ const InvestigationBoard = () => {
     }
   };
 
-  // Автосохранение при изменении состояния
-  const autoSaveBoardState = useCallback(() => {
+  // 🔥 УЛУЧШЕННОЕ АВТОСОХРАНЕНИЕ
+  const scheduleAutoSave = useCallback(() => {
+    needsSaveRef.current = true;
+    
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
     saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        const boardData = {
-          cards,
-          texts,
-          images,
-          connections
-        };
+      if (needsSaveRef.current) {
+        try {
+          const boardData = {
+            cards,
+            texts,
+            images,
+            connections
+          };
 
-        await apiService.saveBoardState(boardId, boardData);
-        console.log('✅ Состояние доски сохранено');
-      } catch (error) {
-        console.error('❌ Ошибка сохранения состояния доски:', error);
+          await apiService.saveBoardState(boardId, boardData);
+          console.log('✅ Состояние доски сохранено');
+          setLastSaveTime(Date.now());
+          needsSaveRef.current = false;
+        } catch (error) {
+          console.error('❌ Ошибка сохранения состояния доски:', error);
+        }
       }
-    }, 1000);
+    }, 1000); // Уменьшил время для более быстрого сохранения
   }, [boardId, cards, texts, images, connections]);
 
-  // Вызываем автосохранение при изменении элементов
+  // 🔥 ВЫЗЫВАЕМ АВТОСОХРАНЕНИЕ ПРИ ЛЮБОМ ИЗМЕНЕНИИ
   useEffect(() => {
     if (cards.length > 0 || texts.length > 0 || images.length > 0 || connections.length > 0) {
-      autoSaveBoardState();
+      scheduleAutoSave();
     }
-  }, [cards, texts, images, connections, autoSaveBoardState]);
+  }, [cards, texts, images, connections, scheduleAutoSave]);
+
+  // 🔥 ФУНКЦИЯ ДЛЯ ПРИНУДИТЕЛЬНОГО СОХРАНЕНИЯ
+  const markForSave = useCallback(() => {
+    needsSaveRef.current = true;
+    scheduleAutoSave();
+  }, [scheduleAutoSave]);
 
   // ФУНКЦИИ ДЛЯ РАБОТЫ С ЭЛЕМЕНТАМИ
   const getAllElements = useCallback(() => [
@@ -130,13 +142,17 @@ const InvestigationBoard = () => {
     return null;
   }, [getAllElements]);
 
-  // ФУНКЦИЯ СОЗДАНИЯ СОЕДИНЕНИЯ
+  // 🔥 УЛУЧШЕННАЯ ФУНКЦИЯ СОЗДАНИЯ СОЕДИНЕНИЯ
   const createConnection = (startElement, endElement) => {
+    console.log('🔄 Создание соединения между:', startElement.id, 'и', endElement.id);
+    
     if (!startElement || !endElement) {
+      console.log('❌ Один из элементов не найден');
       return null;
     }
 
     if (startElement.id === endElement.id) {
+      console.log('❌ Нельзя соединить элемент с самим собой');
       return null;
     }
 
@@ -147,6 +163,7 @@ const InvestigationBoard = () => {
     );
 
     if (connectionExists) {
+      console.log('❌ Соединение уже существует');
       return null;
     }
 
@@ -162,6 +179,8 @@ const InvestigationBoard = () => {
       }
     };
 
+    console.log('✅ СОЕДИНЕНИЕ СОЗДАНО!', newConnection);
+    markForSave();
     return newConnection;
   };
 
@@ -181,7 +200,7 @@ const InvestigationBoard = () => {
     };
   }, [getAllElements]);
 
-  // ОБРАБОТЧИК КЛИКА ДЛЯ СОЕДИНЕНИЙ
+  // 🔥 ИСПРАВЛЕННЫЙ ОБРАБОТЧИК КЛИКА ДЛЯ СОЕДИНЕНИЙ
   const handleConnectionClick = useCallback((e) => {
     if (!isConnecting) return;
     if (editingElementId) return;
@@ -189,10 +208,14 @@ const InvestigationBoard = () => {
     const rect = canvasRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left - canvasOffset.x;
     const clickY = e.clientY - rect.top - canvasOffset.y;
+
+    console.log('🎯 Клик в режиме соединения:', { clickX, clickY });
     
     const element = findElementAtPoint(clickX, clickY);
+    console.log('🔍 Найден элемент:', element ? `${element.type}:${element.id}` : 'null');
 
     if (!element) {
+      console.log('❌ Клик по пустому месту, сбрасываем соединение');
       setConnectingStart(null);
       setTempConnectionEnd(null);
       setSelectedElements(new Set());
@@ -201,14 +224,22 @@ const InvestigationBoard = () => {
 
     if (!connectingStart) {
       // ВЫБОР ПЕРВОГО ЭЛЕМЕНТА
+      console.log('✅ Выбран ПЕРВЫЙ элемент:', element.id);
       setConnectingStart(element);
       setSelectedElements(new Set([element.id]));
     } else {
       // ВЫБОР ВТОРОГО ЭЛЕМЕНТА
+      console.log('✅ Выбран ВТОРОЙ элемент:', element.id);
+      
       const newConnection = createConnection(connectingStart, element);
       
       if (newConnection) {
-        setConnections(prev => [...prev, newConnection]);
+        console.log('🔄 Добавляем соединение в массив...');
+        setConnections(prev => {
+          const newConnections = [...prev, newConnection];
+          console.log('✅ Новый массив соединений:', newConnections);
+          return newConnections;
+        });
       }
       
       // СБРАСЫВАЕМ СОСТОЯНИЕ
@@ -219,10 +250,12 @@ const InvestigationBoard = () => {
 
     e.stopPropagation();
     e.preventDefault();
-  }, [isConnecting, connectingStart, canvasOffset, editingElementId, findElementAtPoint, connections]);
+  }, [isConnecting, connectingStart, canvasOffset, editingElementId, findElementAtPoint, connections, createConnection]);
 
-  // ОБРАБОТЧИК НАЖАТИЯ МЫШИ
+  // 🔥 ВОССТАНОВЛЕННЫЙ ОБРАБОТЧИК НАЖАТИЯ МЫШИ (как в работающей версии)
   const handleCanvasMouseDown = (e) => {
+    console.log('🖱️ MouseDown - режим соединения:', isConnecting);
+    
     if (editingElementId) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
@@ -246,22 +279,27 @@ const InvestigationBoard = () => {
       if (clickedElement) {
         handleElementSelect(clickedElement.id, e.shiftKey);
         
-        if (selectedElements.has(clickedElement.id) || !e.shiftKey) {
-          setIsDraggingSelection(true);
-          setDragStart({ 
-            x: e.clientX, 
-            y: e.clientY,
-            initialPositions: getAllElements()
-              .filter(el => selectedElements.has(el.id))
-              .map(el => ({ id: el.id, type: el.type, position: { ...el.position } }))
-          });
-        }
+        // 🔥 ВОССТАНОВИЛ: НАЧИНАЕМ ПЕРЕТАСКИВАНИЕ ДАЖЕ ЕСЛИ ЭЛЕМЕНТ УЖЕ ВЫБРАН
+        setIsDraggingSelection(true);
+        setDragStart({ 
+          x: e.clientX, 
+          y: e.clientY,
+          initialPositions: getAllElements()
+            .filter(el => selectedElements.has(el.id) || el.id === clickedElement.id)
+            .map(el => ({ 
+              id: el.id, 
+              type: el.type, 
+              position: { ...el.position },
+              originalPosition: { ...el.position } // Сохраняем оригинальную позицию
+            }))
+        });
       } else {
         if (!e.shiftKey) setSelectedElements(new Set());
       }
     }
   };
 
+  // 🔥 ВОССТАНОВЛЕННЫЙ ОБРАБОТЧИК ПЕРЕМЕЩЕНИЯ МЫШИ
   const handleCanvasMouseMove = useCallback((e) => {
     if (editingElementId) return;
 
@@ -288,14 +326,15 @@ const InvestigationBoard = () => {
         start: startPos,
         end: { x: currentX, y: currentY }
       });
-    } else if (isDraggingSelection && dragStart && selectedElements.size > 0) {
+    } else if (isDraggingSelection && dragStart && dragStart.initialPositions.length > 0) {
       const deltaX = e.clientX - dragStart.x;
       const deltaY = e.clientY - dragStart.y;
 
-      dragStart.initialPositions.forEach(({ id, type, position }) => {
+      // 🔥 ОБНОВЛЯЕМ ПОЗИЦИИ ВСЕХ ВЫБРАННЫХ ЭЛЕМЕНТОВ
+      dragStart.initialPositions.forEach(({ id, type, originalPosition }) => {
         const newPosition = {
-          x: position.x + deltaX,
-          y: position.y + deltaY
+          x: originalPosition.x + deltaX,
+          y: originalPosition.y + deltaY
         };
 
         if (type === 'card') {
@@ -315,10 +354,11 @@ const InvestigationBoard = () => {
     }
   }, [
     isDraggingCanvas, isSelecting, selectionStart, isConnecting, 
-    connectingStart, isDraggingSelection, selectedElements, 
-    canvasOffset, dragStart, editingElementId
+    connectingStart, isDraggingSelection, canvasOffset, 
+    dragStart, editingElementId, getAllElements
   ]);
 
+  // 🔥 ВОССТАНОВЛЕННЫЙ ОБРАБОТЧИК ОТПУСКАНИЯ МЫШИ
   const handleCanvasMouseUp = useCallback(() => {
     if (isSelecting && selectionRect) {
       const allElements = getAllElements();
@@ -342,18 +382,45 @@ const InvestigationBoard = () => {
     setIsDraggingCanvas(false);
     setIsDraggingSelection(false);
     setDragStart(null);
-  }, [isSelecting, selectionRect, selectedElements, getAllElements]);
 
-  // EVENT LISTENERS
+    // 🔥 СОХРАНЯЕМ ПОСЛЕ ПЕРЕТАСКИВАНИЯ
+    if (isDraggingSelection) {
+      markForSave();
+    }
+  }, [isSelecting, selectionRect, selectedElements, getAllElements, isDraggingSelection, markForSave]);
+
+  // ОБРАБОТЧИК КЛАВИАТУРЫ ДЛЯ УДАЛЕНИЯ
   useEffect(() => {
-    document.addEventListener('mousemove', handleCanvasMouseMove);
-    document.addEventListener('mouseup', handleCanvasMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleCanvasMouseMove);
-      document.removeEventListener('mouseup', handleCanvasMouseUp);
+    const handleKeyDown = (e) => {
+      if (e.key === 'Delete' && selectedElements.size > 0) {
+        handleDeleteSelected();
+      }
     };
-  }, [handleCanvasMouseMove, handleCanvasMouseUp]);
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedElements]);
+
+  // УДАЛЕНИЕ ВЫБРАННЫХ ЭЛЕМЕНТОВ
+  const handleDeleteSelected = () => {
+    if (selectedElements.size === 0) return;
+
+    const allElements = getAllElements();
+    const elementsToDelete = allElements.filter(el => selectedElements.has(el.id));
+
+    elementsToDelete.forEach(element => {
+      if (element.type === 'card') {
+        setCards(prev => prev.filter(card => card.id !== element.id));
+      } else if (element.type === 'text') {
+        setTexts(prev => prev.filter(text => text.id !== element.id));
+      } else if (element.type === 'image') {
+        setImages(prev => prev.filter(img => img.id !== element.id));
+      }
+    });
+
+    setSelectedElements(new Set());
+    markForSave();
+  };
 
   // УДАЛЕНИЕ СОЕДИНЕНИЙ ПРИ УДАЛЕНИИ ЭЛЕМЕНТОВ
   useEffect(() => {
@@ -392,6 +459,7 @@ const InvestigationBoard = () => {
       position: { x: 100, y: 100 }
     };
     setCards(prev => [...prev, newCard]);
+    markForSave();
     resetTools();
   };
 
@@ -402,11 +470,13 @@ const InvestigationBoard = () => {
       position: { x: 100, y: 150 }
     };
     setTexts(prev => [...prev, newText]);
+    markForSave();
     resetTools();
   };
 
   const handleConnect = () => {
     const newConnectingState = !isConnecting;
+    console.log('🔗 Переключение режима соединения:', newConnectingState);
     setIsConnecting(newConnectingState);
     setIsMovingCanvas(false);
     setIsSelecting(false);
@@ -426,19 +496,14 @@ const InvestigationBoard = () => {
       const file = e.target.files[0];
       if (file) {
         try {
-          const uploadResult = await apiService.uploadFile(boardId, file, {
-            title: file.name,
-            description: 'Изображение для доски',
-            tags: ['board-image']
-          });
-
+          // Временно используем локальный URL, можно добавить загрузку на сервер позже
           const newImage = {
             id: `image-${Date.now()}`,
-            fileId: uploadResult.id,
             url: URL.createObjectURL(file),
             position: { x: 100, y: 200 }
           };
           setImages(prev => [...prev, newImage]);
+          markForSave();
         } catch (error) {
           console.error('Ошибка загрузки изображения:', error);
         }
@@ -457,17 +522,19 @@ const InvestigationBoard = () => {
     setSelectedElements(new Set());
   };
 
-  // ОБРАБОТЧИКИ РЕДАКТИРОВАНИЯ ЭЛЕМЕНТОВ
+  // 🔥 ОБРАБОТЧИКИ РЕДАКТИРОВАНИЯ ЭЛЕМЕНТОВ
   const handleCardEdit = (id, newData) => {
     if (newData._delete) {
       setCards(prev => prev.filter(card => card.id !== id));
       setEditingElementId(null);
+      markForSave();
     } else {
       setCards(prev => prev.map(card => 
         card.id === id ? { ...card, ...newData } : card
       ));
       if (!newData.isEditing) {
         setEditingElementId(null);
+        markForSave();
       }
     }
   };
@@ -476,12 +543,14 @@ const InvestigationBoard = () => {
     if (newData._delete) {
       setTexts(prev => prev.filter(text => text.id !== id));
       setEditingElementId(null);
+      markForSave();
     } else {
       setTexts(prev => prev.map(text => 
         text.id === id ? { ...text, content: newData } : text
       ));
       if (typeof newData === 'string') {
         setEditingElementId(null);
+        markForSave();
       }
     }
   };
@@ -490,10 +559,12 @@ const InvestigationBoard = () => {
     if (newData._delete) {
       setImages(prev => prev.filter(img => img.id !== id));
       setEditingElementId(null);
+      markForSave();
     } else {
       setImages(prev => prev.map(img => 
         img.id === id ? { ...img, url: newData } : img
       ));
+      markForSave();
     }
   };
 
@@ -531,6 +602,17 @@ const InvestigationBoard = () => {
     if (selectedElements.size > 0) return 'move';
     return 'default';
   };
+
+  // EVENT LISTENERS
+  useEffect(() => {
+    document.addEventListener('mousemove', handleCanvasMouseMove);
+    document.addEventListener('mouseup', handleCanvasMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleCanvasMouseMove);
+      document.removeEventListener('mouseup', handleCanvasMouseUp);
+    };
+  }, [handleCanvasMouseMove, handleCanvasMouseUp]);
 
   return (
     <div className="relative w-full h-screen bg-[#151516] overflow-hidden">
@@ -600,7 +682,7 @@ const InvestigationBoard = () => {
               articleUrl={card.articleUrl}
               date={card.date}
               trustLevel={card.trustLevel}
-              initialPosition={card.position}
+              position={card.position} // 🔥 ИСПРАВЛЕНО: было initialPosition
               onEdit={handleCardEdit}
               onEditStart={handleElementEditStart}
               onEditEnd={handleElementEditEnd}
@@ -663,11 +745,13 @@ const InvestigationBoard = () => {
       />
 
       <div className="fixed top-20 left-4 bg-black bg-opacity-70 text-white p-3 rounded-lg text-sm font-medium z-40">
-        <div>Расследование: <span className="text-blue-400">{investigation?.title}</span></div>
-        <div>Карточек: <span className="text-blue-400">{cards.length}</span></div>
-        <div>Текстов: <span className="text-blue-400">{texts.length}</span></div>
-        <div>Изображений: <span className="text-blue-400">{images.length}</span></div>
+        <div>Выбрано: <span className="text-blue-400">{selectedElements.size}</span></div>
         <div>Соединений: <span className="text-green-400">{connections.length}</span></div>
+        {lastSaveTime > 0 && (
+          <div className="text-gray-400 text-xs mt-1">
+            Сохранено: {new Date(lastSaveTime).toLocaleTimeString()}
+          </div>
+        )}
         {editingElementId && <div className="text-orange-400">• Редактирование элемента</div>}
         {isSelecting && <div className="text-green-400">• Выделение</div>}
         {isMovingCanvas && <div className="text-yellow-400">• Перемещение канваса</div>}
