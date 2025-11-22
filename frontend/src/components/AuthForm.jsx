@@ -5,17 +5,26 @@ import InputField from './InputField';
 import ButtonFilled from './ButtonFilled';
 import ButtonOutline from './ButtonOutline';
 import { apiService } from '../services/api';
+import { useAuth } from '../App'; // Импортируем хук
 
-const AuthForm = ({ 
-  isLogin, 
-  formData, 
-  onInputChange, 
-  onSubmit, 
-  onSwitchMode 
-}) => {
+const AuthForm = ({ isLogin, onSwitchMode }) => {
+  const [formData, setFormData] = useState({
+    email: '',
+    username: '',
+    password: '',
+    login: ''
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { login } = useAuth(); // Используем контекст
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,6 +32,8 @@ const AuthForm = ({
     setError('');
 
     try {
+      console.log('📤 Отправка данных:', formData);
+      
       let response;
       
       if (isLogin) {
@@ -38,14 +49,16 @@ const AuthForm = ({
         });
       }
 
-      // Сохраняем пользователя в localStorage
-      localStorage.setItem('user', JSON.stringify(response));
-      localStorage.setItem('userId', response.id);
+      console.log('📥 Ответ от сервера:', response);
+
+      // Используем контекст для входа
+      login(response);
       
-      // Переходим к доскам
+      console.log('✅ Успешная авторизация, переход к /boards');
       navigate('/boards');
       
     } catch (err) {
+      console.error('❌ Ошибка авторизации:', err);
       setError(err.message || 'Произошла ошибка');
     } finally {
       setLoading(false);
@@ -72,7 +85,7 @@ const AuthForm = ({
             <InputField
               type="email"
               value={formData.email}
-              onChange={(e) => onInputChange('email', e.target.value)}
+              onChange={(e) => handleInputChange('email', e.target.value)}
               placeholder="Введите вашу почту"
               className="w-full"
               required
@@ -87,7 +100,7 @@ const AuthForm = ({
           </label>
           <InputField
             value={isLogin ? formData.login : formData.username}
-            onChange={(e) => onInputChange(isLogin ? 'login' : 'username', e.target.value)}
+            onChange={(e) => handleInputChange(isLogin ? 'login' : 'username', e.target.value)}
             placeholder={isLogin ? 'Введите ваш логин' : 'Придумайте логин'}
             className="w-full"
             required
@@ -100,7 +113,7 @@ const AuthForm = ({
           <InputField
             type="password"
             value={formData.password}
-            onChange={(e) => onInputChange('password', e.target.value)}
+            onChange={(e) => handleInputChange('password', e.target.value)}
             placeholder={isLogin ? 'Введите ваш пароль' : 'Придумайте пароль'}
             className="w-full"
             required

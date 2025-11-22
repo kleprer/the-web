@@ -1,19 +1,28 @@
+// components/Navbar.jsx
 import React from 'react';
-import { UserOutlined } from '@ant-design/icons';
-import { Link, useParams } from 'react-router-dom';
+import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
+import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../App'; // Импортируем хук
 
 const Navbar = ({ currentBoardName = "Текущая доска", boards = [] }) => {
-  const isLoggedIn = true; // заглушка
   const { boardId } = useParams();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth(); // Используем контекст
+
+  const handleLogout = () => {
+    logout(); // Используем функцию из контекста
+    navigate('/auth'); // Переходим на страницу авторизации
+  };
 
   return (
     <nav className="bg-[#151516] p-4 relative z-50 border-b border-gray-700">
       <div className="bg-[#151516] max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center gap-4">
-          {isLoggedIn && (
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-              <UserOutlined className="text-black text-lg text-[24px]" />
-            </div>
+          {user && ( // Показываем только если пользователь авторизован
+            <UserDropdown 
+              userData={user}
+              onLogout={handleLogout}
+            />
           )}
           
           {/* Название текущей доски с выпадающим списком */}
@@ -72,7 +81,70 @@ const Navbar = ({ currentBoardName = "Текущая доска", boards = [] })
   );
 };
 
-// Компонент выпадающего списка досок
+// Компонент выпадающего меню пользователя
+const UserDropdown = ({ userData, onLogout }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  return (
+    <div className="relative">
+      {/* Иконка пользователя */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors cursor-pointer"
+        onMouseEnter={() => setIsOpen(true)}
+      >
+        <UserOutlined className="text-black text-lg text-[24px]" />
+      </button>
+
+      {/* Выпадающее меню */}
+      {isOpen && (
+        <div 
+          className="absolute top-full left-0 mt-2 w-64 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50"
+          onMouseLeave={() => setIsOpen(false)}
+        >
+          <div className="p-4">
+            {/* Заголовок */}
+            <div className="text-sm text-gray-400 mb-2">
+              Аккаунт
+            </div>
+            
+            {/* Информация о пользователе */}
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-white font-medium text-sm">Логин:</span>
+                <span className="text-white text-sm">{userData.username}</span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-white font-medium text-sm">Email:</span>
+                <span className="text-white text-sm truncate">{userData.email}</span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-white font-medium text-sm">ID:</span>
+                <span className="text-gray-400 text-xs">{userData.id}</span>
+              </div>
+            </div>
+
+            {/* Разделитель */}
+            <div className="border-t border-gray-700 my-3"></div>
+
+            {/* Кнопка выхода */}
+            <button
+              onClick={onLogout}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-sm font-medium"
+            >
+              <LogoutOutlined />
+              <span>Выйти из аккаунта</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Компонент выпадающего списка досок (остается без изменений)
 const BoardDropdown = ({ currentBoardName, boards, currentBoardId }) => {
   const [isOpen, setIsOpen] = React.useState(false);
 

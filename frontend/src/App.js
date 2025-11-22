@@ -1,14 +1,25 @@
+// App.js
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import React, { useState, useEffect } from 'react';
 import Auth from './pages/Auth';
 import BoardSelection from './pages/BoardSelection';
 import InvestigationBoard from './pages/InvestigationBoard';
 import Timeline from './pages/Timeline';
 import EvidenceStorage from './pages/EvidenceStorage';
+import Navbar from './components/Navbar';
 import './App.css';
 
-// Контекст для хранения пользователя
-export const AuthContext = React.createContext();
+// Создаем контекст
+export const AuthContext = createContext();
+
+// Хук для использования контекста
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 
 function App() {
   const [user, setUser] = useState(null);
@@ -26,6 +37,7 @@ function App() {
   const login = (userData) => {
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('userId', userData.id);
   };
 
   const logout = () => {
