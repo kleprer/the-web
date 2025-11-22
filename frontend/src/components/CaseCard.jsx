@@ -7,7 +7,7 @@ const CaseCard = ({
   date, 
   trustLevel = 'unknown',
   className = "",
-  initialPosition = { x: 0, y: 0 },
+  position = { x: 0, y: 0 },
   onEdit,
   onEditStart,
   onEditEnd,
@@ -17,7 +17,6 @@ const CaseCard = ({
   isEditing = false,
   ...props 
 }) => {
-  const [position, setPosition] = useState(initialPosition);
   const [isDragging, setIsDragging] = useState(false);
   const [editData, setEditData] = useState({
     title: title || '',
@@ -53,26 +52,13 @@ const CaseCard = ({
   };
 
   const handleMouseDown = (e) => {
-    if (isEditing) return; // Если редактируем - блокируем перемещение
+    if (isEditing) return;
     
     if (isEditMode && onSelect) {
       onSelect(id, e.shiftKey);
     }
-    setIsDragging(true);
+    // Перетаскивание обрабатывается родительским компонентом
     e.preventDefault();
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDragging || isEditing) return;
-    
-    setPosition(prev => ({
-      x: prev.x + e.movementX,
-      y: prev.y + e.movementY
-    }));
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
   };
 
   const handleDoubleClick = (e) => {
@@ -133,7 +119,6 @@ const CaseCard = ({
         select-none
         w-80
         min-h-48
-        ${isDragging ? 'opacity-80 z-50 cursor-grabbing' : 'opacity-100'}
         ${isEditMode ? 'border-dashed' : 'border-solid'}
         ${isEditing ? 'border-yellow-400 z-50' : ''}
         ${className}
@@ -143,9 +128,6 @@ const CaseCard = ({
         top: `${position.y}px`,
       }}
       onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
       onDoubleClick={handleDoubleClick}
       {...props}
     >
@@ -235,7 +217,6 @@ const CaseCard = ({
               {title || 'Без названия'}
             </h3>
 
-            {/* URL СТАТЬИ - ТЕПЕРЬ РАБОТАЕТ ПРАВИЛЬНО */}
             {articleUrl && (
               <a 
                 href={articleUrl} 

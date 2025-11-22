@@ -72,7 +72,7 @@ const InvestigationBoard = () => {
     return null;
   }, [getAllElements]);
 
-  // ПРОСТАЯ И РАБОЧАЯ ФУНКЦИЯ СОЗДАНИЯ СОЕДИНЕНИЯ
+  // УЛУЧШЕННАЯ ФУНКЦИЯ СОЗДАНИЯ СОЕДИНЕНИЯ
   const createConnection = (startElement, endElement) => {
     console.log('🔄 Создание соединения между:', startElement.id, 'и', endElement.id);
     
@@ -113,7 +113,7 @@ const InvestigationBoard = () => {
     return newConnection;
   };
 
-  // ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ ПОЗИЦИЙ СОЕДИНЕНИЙ
+  // ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ ПОЗИЦИЙ СОЕДИНЕНИЙ (ОБНОВЛЕННАЯ)
   const getConnectionPositions = useCallback((connection) => {
     const allElements = getAllElements();
     const startElement = allElements.find(el => el.id === connection.start.elementId);
@@ -179,7 +179,7 @@ const InvestigationBoard = () => {
 
     e.stopPropagation();
     e.preventDefault();
-  }, [isConnecting, connectingStart, canvasOffset, editingElementId, findElementAtPoint, connections]);
+  }, [isConnecting, connectingStart, canvasOffset, editingElementId, findElementAtPoint, connections, createConnection]);
 
   // ОБНОВЛЕННЫЙ ОБРАБОТЧИК НАЖАТИЯ МЫШИ
   const handleCanvasMouseDown = (e) => {
@@ -208,22 +208,27 @@ const InvestigationBoard = () => {
       if (clickedElement) {
         handleElementSelect(clickedElement.id, e.shiftKey);
         
-        if (selectedElements.has(clickedElement.id) || !e.shiftKey) {
-          setIsDraggingSelection(true);
-          setDragStart({ 
-            x: e.clientX, 
-            y: e.clientY,
-            initialPositions: getAllElements()
-              .filter(el => selectedElements.has(el.id))
-              .map(el => ({ id: el.id, type: el.type, position: { ...el.position } }))
-          });
-        }
+        // НАЧИНАЕМ ПЕРЕТАСКИВАНИЕ ДАЖЕ ЕСЛИ ЭЛЕМЕНТ УЖЕ ВЫБРАН
+        setIsDraggingSelection(true);
+        setDragStart({ 
+          x: e.clientX, 
+          y: e.clientY,
+          initialPositions: getAllElements()
+            .filter(el => selectedElements.has(el.id) || el.id === clickedElement.id)
+            .map(el => ({ 
+              id: el.id, 
+              type: el.type, 
+              position: { ...el.position },
+              originalPosition: { ...el.position } // Сохраняем оригинальную позицию
+            }))
+        });
       } else {
         if (!e.shiftKey) setSelectedElements(new Set());
       }
     }
   };
 
+  // УЛУЧШЕННЫЙ ОБРАБОТЧИК ПЕРЕМЕЩЕНИЯ МЫШИ
   const handleCanvasMouseMove = useCallback((e) => {
     if (editingElementId) return;
 
@@ -250,14 +255,15 @@ const InvestigationBoard = () => {
         start: startPos,
         end: { x: currentX, y: currentY }
       });
-    } else if (isDraggingSelection && dragStart && selectedElements.size > 0) {
+    } else if (isDraggingSelection && dragStart && dragStart.initialPositions.length > 0) {
       const deltaX = e.clientX - dragStart.x;
       const deltaY = e.clientY - dragStart.y;
 
-      dragStart.initialPositions.forEach(({ id, type, position }) => {
+      // ОБНОВЛЯЕМ ПОЗИЦИИ ВСЕХ ВЫБРАННЫХ ЭЛЕМЕНТОВ
+      dragStart.initialPositions.forEach(({ id, type, originalPosition }) => {
         const newPosition = {
-          x: position.x + deltaX,
-          y: position.y + deltaY
+          x: originalPosition.x + deltaX,
+          y: originalPosition.y + deltaY
         };
 
         if (type === 'card') {
@@ -277,10 +283,11 @@ const InvestigationBoard = () => {
     }
   }, [
     isDraggingCanvas, isSelecting, selectionStart, isConnecting, 
-    connectingStart, isDraggingSelection, selectedElements, 
-    canvasOffset, dragStart, editingElementId
+    connectingStart, isDraggingSelection, canvasOffset, 
+    dragStart, editingElementId, getAllElements
   ]);
 
+  // ОБНОВЛЕННЫЙ ОБРАБОТЧИК ОТПУСКАНИЯ МЫШИ
   const handleCanvasMouseUp = useCallback(() => {
     if (isSelecting && selectionRect) {
       const allElements = getAllElements();
@@ -306,16 +313,37 @@ const InvestigationBoard = () => {
     setDragStart(null);
   }, [isSelecting, selectionRect, selectedElements, getAllElements]);
 
-  // EVENT LISTENERS
+  // ОБРАБОТЧИК КЛАВИАТУРЫ ДЛЯ УДАЛЕНИЯ
   useEffect(() => {
-    document.addEventListener('mousemove', handleCanvasMouseMove);
-    document.addEventListener('mouseup', handleCanvasMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleCanvasMouseMove);
-      document.removeEventListener('mouseup', handleCanvasMouseUp);
+    const handleKeyDown = (e) => {
+      if (e.key === 'Delete' && selectedElements.size > 0) {
+        handleDeleteSelected();
+      }
     };
-  }, [handleCanvasMouseMove, handleCanvasMouseUp]);
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedElements]);
+
+  // УДАЛЕНИЕ ВЫБРАННЫХ ЭЛЕМЕНТОВ
+  const handleDeleteSelected = () => {
+    if (selectedElements.size === 0) return;
+
+    const allElements = getAllElements();
+    const elementsToDelete = allElements.filter(el => selectedElements.has(el.id));
+
+    elementsToDelete.forEach(element => {
+      if (element.type === 'card') {
+        setCards(prev => prev.filter(card => card.id !== element.id));
+      } else if (element.type === 'text') {
+        setTexts(prev => prev.filter(text => text.id !== element.id));
+      } else if (element.type === 'image') {
+        setImages(prev => prev.filter(img => img.id !== element.id));
+      }
+    });
+
+    setSelectedElements(new Set());
+  };
 
   // УДАЛЕНИЕ СОЕДИНЕНИЙ ПРИ УДАЛЕНИИ ЭЛЕМЕНТОВ
   useEffect(() => {
@@ -485,6 +513,17 @@ const InvestigationBoard = () => {
     return 'default';
   };
 
+  // EVENT LISTENERS
+  useEffect(() => {
+    document.addEventListener('mousemove', handleCanvasMouseMove);
+    document.addEventListener('mouseup', handleCanvasMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleCanvasMouseMove);
+      document.removeEventListener('mouseup', handleCanvasMouseUp);
+    };
+  }, [handleCanvasMouseMove, handleCanvasMouseUp]);
+
   return (
     <div className="relative w-full h-screen bg-[#151516] overflow-hidden">
       <Navbar 
@@ -541,7 +580,7 @@ const InvestigationBoard = () => {
           );
         })}
 
-        {/* CARDS - ДОБАВЛЯЕМ pointer-events: none В РЕЖИМЕ СОЕДИНЕНИЯ */}
+        {/* CARDS */}
         {cards.map(card => (
           <div 
             key={card.id}
@@ -553,7 +592,7 @@ const InvestigationBoard = () => {
               articleUrl={card.articleUrl}
               date={card.date}
               trustLevel={card.trustLevel}
-              initialPosition={card.position}
+              position={card.position}
               onEdit={handleCardEdit}
               onEditStart={handleElementEditStart}
               onEditEnd={handleElementEditEnd}
@@ -565,7 +604,7 @@ const InvestigationBoard = () => {
           </div>
         ))}
 
-        {/* TEXTS - ДОБАВЛЯЕМ pointer-events: none В РЕЖИМЕ СОЕДИНЕНИЯ */}
+        {/* TEXTS */}
         {texts.map(text => (
           <div 
             key={text.id}
@@ -586,7 +625,7 @@ const InvestigationBoard = () => {
           </div>
         ))}
 
-        {/* IMAGES - ДОБАВЛЯЕМ pointer-events: none В РЕЖИМЕ СОЕДИНЕНИЯ */}
+        {/* IMAGES */}
         {images.map(image => (
           <div 
             key={image.id}
