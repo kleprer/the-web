@@ -1,4 +1,4 @@
-// components/NewEventForm.jsx
+// frontend/src/components/NewEventForm.jsx
 import React, { useState } from 'react';
 import { PaperClipOutlined } from '@ant-design/icons';
 import InputField from './InputField';
@@ -29,7 +29,7 @@ const NewEventForm = ({ onAddEvent, onCancel }) => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!formData.date || !formData.title) {
@@ -37,16 +37,24 @@ const NewEventForm = ({ onAddEvent, onCancel }) => {
       return;
     }
 
-    const newEvent = {
-      id: Date.now(),
-      date: formData.date,
-      title: formData.title,
-      description: formData.description,
-      file: formData.file
-    };
+    try {
+      // Преобразуем данные для бэкенда
+      const eventDataForBackend = {
+        title: formData.title,
+        description: formData.description || '',
+        event_date: new Date(formData.date + 'T12:00:00').toISOString() // Преобразуем дату в ISO формат
+      };
 
-    onAddEvent(newEvent);
-    setFormData({ date: '', title: '', description: '', file: null });
+      console.log('📤 Отправляемые данные:', eventDataForBackend);
+      await onAddEvent(eventDataForBackend);
+      
+      // Сбрасываем форму после успешного добавления
+      setFormData({ date: '', title: '', description: '', file: null });
+      
+    } catch (error) {
+      console.error('❌ Ошибка при создании события:', error);
+      alert('Ошибка при создании события: ' + error.message);
+    }
   };
 
   return (

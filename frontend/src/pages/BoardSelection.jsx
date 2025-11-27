@@ -94,7 +94,10 @@ const BoardSelection = () => {
 
   return (
     <div className="bg-[#151516] text-white min-h-screen">
-      <Navbar />
+
+      <Navbar 
+        currentBoardName=''
+      />
 
       <div className="container mx-auto px-8 py-12 mt-[5rem]">
         <h1 className="text-3xl font-semibold text-center mb-12">

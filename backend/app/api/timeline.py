@@ -13,6 +13,7 @@ def create_timeline_event(
     event: timeline.TimelineEventCreate,
     db: Session = Depends(get_db)
 ):
+    """Создать новое событие таймлайна"""
     # Verify investigation exists
     investigation = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id
@@ -36,6 +37,14 @@ def create_timeline_event(
 
 @router.get("/{investigation_id}/events")
 def get_timeline_events(investigation_id: int, db: Session = Depends(get_db)):
+    """Получить все события таймлайна для расследования"""
+    # Verify investigation exists
+    investigation = db.query(models.Investigation).filter(
+        models.Investigation.id == investigation_id
+    ).first()
+    if not investigation:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+    
     events = db.query(models.TimelineEvent).filter(
         models.TimelineEvent.investigation_id == investigation_id
     ).order_by(models.TimelineEvent.event_date).all()
@@ -48,6 +57,7 @@ def update_timeline_event(
     event: timeline.TimelineEventUpdate,
     db: Session = Depends(get_db)
 ):
+    """Обновить событие таймлайна"""
     db_event = db.query(models.TimelineEvent).filter(
         models.TimelineEvent.id == event_id
     ).first()
@@ -70,6 +80,7 @@ def update_timeline_event(
 
 @router.delete("/events/{event_id}")
 def delete_timeline_event(event_id: int, db: Session = Depends(get_db)):
+    """Удалить событие таймлайна"""
     db_event = db.query(models.TimelineEvent).filter(
         models.TimelineEvent.id == event_id
     ).first()
