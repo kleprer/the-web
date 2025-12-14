@@ -1,5 +1,5 @@
 # backend/main.py
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from models import models
@@ -12,20 +12,29 @@ from api.note import router as notes_router
 from api.search import router as search_router
 from api.user import router as user_router
 from api.board import router as board_router
+from datetime import datetime  # Добавь этот импорт!
 
-# 🔥 ПЕРЕСОЗДАЕМ ВСЕ ТАБЛИЦЫ С НОВЫМИ ПОЛЯМИ
+# 🔥 УДАЛЯЕМ И ПЕРЕСОЗДАЕМ ТАБЛИЦЫ С НОВОЙ СХЕМОЙ
 models.Base.metadata.drop_all(bind=engine)  # Удаляем старые таблицы
-models.Base.metadata.create_all(bind=engine)  # Создаем новые
+models.Base.metadata.create_all(bind=engine)  # Создаем новые с password_hash
 
-app = FastAPI(title="Journalist Assistant API")
+app = FastAPI(
+    title="Journalist Assistant API",
+    description="API для журналистских расследований с доской для визуализации связей",
+    version="1.0.0",
+    openapi_url="/openapi.json",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # Подключите все роутеры
@@ -40,4 +49,13 @@ app.include_router(board_router)
 
 @app.get("/")
 def read_root():
-    return {"message": "Journalist Assistant API is running"}
+    return {
+        "message": "Journalist Assistant API is running",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/health"
+    }
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}

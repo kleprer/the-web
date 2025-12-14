@@ -5,7 +5,7 @@ import InputField from './InputField';
 import ButtonFilled from './ButtonFilled';
 import ButtonOutline from './ButtonOutline';
 import { apiService } from '../services/api';
-import { useAuth } from '../App'; // Импортируем хук
+import { useAuth } from '../context/AuthContext'; // Измененный импорт!
 
 const AuthForm = ({ isLogin, onSwitchMode }) => {
   const [formData, setFormData] = useState({
@@ -26,44 +26,46 @@ const AuthForm = ({ isLogin, onSwitchMode }) => {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+// frontend/src/components/AuthForm.jsx - ИСПРАВЬ ОБРАБОТКУ ОТВЕТА
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError('');
 
-    try {
-      console.log('📤 Отправка данных:', formData);
-      
-      let response;
-      
-      if (isLogin) {
-        response = await apiService.login({
-          username: formData.login,
-          password: formData.password
-        });
-      } else {
-        response = await apiService.signup({
-          username: formData.username,
-          password: formData.password,
-          email: formData.email
-        });
-      }
-
-      console.log('📥 Ответ от сервера:', response);
-
-      // Используем контекст для входа
-      login(response);
-      
-      console.log('✅ Успешная авторизация, переход к /boards');
-      navigate('/boards');
-      
-    } catch (err) {
-      console.error('❌ Ошибка авторизации:', err);
-      setError(err.message || 'Произошла ошибка');
-    } finally {
-      setLoading(false);
+  try {
+    console.log('📤 Отправка данных:', formData);
+    
+    let response;
+    
+    if (isLogin) {
+      // 🔴 ВАЖНО: используем правильные поля для логина
+      response = await apiService.login({
+        username: formData.login,  // Поле называется login
+        password: formData.password
+      });
+    } else {
+      response = await apiService.signup({
+        username: formData.username,
+        password: formData.password,
+        email: formData.email
+      });
     }
-  };
+
+    console.log('📥 Ответ от сервера:', response);
+
+    // 🔴 ПРОБЛЕМА БЫЛА ЗДЕСЬ: login ожидает тот же объект, что вернул сервер
+    login(response);  // Передаем ВЕСЬ объект response
+    
+    console.log('✅ Успешная авторизация, переход к /boards');
+    navigate('/boards');
+    
+  } catch (err) {
+    console.error('❌ Ошибка авторизации:', err);
+    setError(err.message || 'Произошла ошибка');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="border border-white border-opacity-50 rounded-[20px] bg-transparent p-8 w-[30rem]">

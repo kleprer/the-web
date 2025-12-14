@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { PlusOutlined } from '@ant-design/icons';
 import Navbar from '../components/Navbar';
 import { apiService } from '../services/api';
-import { useAuth } from '../App';
+import { useAuth } from '../context/AuthContext';
 
 const BoardSelection = () => {
   const navigate = useNavigate();

@@ -6,7 +6,7 @@ import EvidenceCard from '../components/EvidenceCard';
 import ExportForm from '../components/ExportForm';
 import Navbar from '../components/Navbar';
 import { apiService } from '../services/api';
-import { useAuth } from '../App';
+import { useAuth } from '../context/AuthContext';
 
 const EvidenceStorage = () => {
   const { boardId } = useParams();

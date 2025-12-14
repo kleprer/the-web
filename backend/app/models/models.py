@@ -1,6 +1,7 @@
-# backend/models/models.py
+# backend/models/models.py - ФИНАЛЬНЫЙ РАБОЧИЙ ВАРИАНТ
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, JSON, Boolean
 from database import Base
+import hashlib
 
 class User(Base):
     __tablename__ = "users"
@@ -8,7 +9,31 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
-    password = Column(String)
+    password = Column(String, nullable=True)  # Старая колонка
+    password_hash = Column(String, nullable=True)  # SHA256 хеш
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, nullable=True)
+    
+    def verify_password(self, password: str):
+        # Проверяем password_hash (SHA256)
+        if self.password_hash:
+            return self.get_sha256_hash(password) == self.password_hash
+        
+        # Проверяем старый password (plain text)
+        elif self.password:
+            return self.password == password
+        
+        return False
+    
+    @staticmethod
+    def get_sha256_hash(password: str):
+        """SHA256 хеширование"""
+        return hashlib.sha256(password.encode()).hexdigest()
+    
+    @staticmethod
+    def get_password_hash(password: str):
+        """Публичный метод для хеширования"""
+        return User.get_sha256_hash(password)
 
 class Investigation(Base):
     __tablename__ = "investigations"

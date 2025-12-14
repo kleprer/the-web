@@ -1,5 +1,5 @@
+# backend/api/files.py
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, Form
-from fastapi import File as FastAPIFile  # Rename to avoid conflict
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -7,7 +7,9 @@ import os
 import uuid
 import shutil
 from database import get_db
-from models.models import File, Investigation
+from models import models
+from schemas.file import FileResponse as FileResponseSchema
+from dependencies.auth import get_current_user
 
 router = APIRouter(prefix="/files", tags=["files"])
 
@@ -17,15 +19,20 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 @router.post("/upload/{investigation_id}")
 async def upload_file(
     investigation_id: int,
-    file: UploadFile,  # Remove the = File(...) part
+    file: UploadFile,
     title: str = Form(None),
     description: str = Form(None),
     tags: str = Form("[]"),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Upload ANY type of file - documents, images, etc."""
-    # Verify investigation exists
-    investigation = db.query(Investigation).filter(Investigation.id == investigation_id).first()
+    # Verify investigation exists and belongs to user
+    investigation = db.query(models.Investigation).filter(
+        models.Investigation.id == investigation_id,
+        models.Investigation.user_id == current_user.id
+    ).first()
+    
     if not investigation:
         raise HTTPException(status_code=404, detail="Investigation not found")
     
@@ -50,7 +57,7 @@ async def upload_file(
         file_type = 'other'
     
     # Create file record
-    db_file = File(
+    db_file = models.File(
         investigation_id=investigation_id,
         filename=file.filename,
         file_path=file_path,
@@ -75,21 +82,46 @@ async def upload_file(
         "message": "File uploaded successfully"
     }
 
-@router.get("/")
-def get_files(investigation_id: int, file_type: str = None, db: Session = Depends(get_db)):
+@router.get("/", response_model=list[FileResponseSchema])
+def get_files(
+    investigation_id: int,
+    file_type: str = None,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Get files - filter by type if needed"""
-    query = db.query(File).filter(File.investigation_id == investigation_id)
+    # Verify investigation exists and belongs to user
+    investigation = db.query(models.Investigation).filter(
+        models.Investigation.id == investigation_id,
+        models.Investigation.user_id == current_user.id
+    ).first()
+    
+    if not investigation:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+    
+    query = db.query(models.File).filter(models.File.investigation_id == investigation_id)
     
     if file_type:
-        query = query.filter(File.file_type == file_type)
+        query = query.filter(models.File.file_type == file_type)
     
-    files = query.order_by(File.uploaded_at.desc()).all()
+    files = query.order_by(models.File.uploaded_at.desc()).all()
     return files
 
 @router.get("/download/{file_id}")
-async def download_file(file_id: int, db: Session = Depends(get_db)):
+async def download_file(
+    file_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Download any file"""
-    file_record = db.query(File).filter(File.id == file_id).first()
+    file_record = db.query(models.File).join(
+        models.Investigation,
+        models.Investigation.id == models.File.investigation_id
+    ).filter(
+        models.File.id == file_id,
+        models.Investigation.user_id == current_user.id
+    ).first()
+    
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
     
@@ -102,20 +134,39 @@ async def download_file(file_id: int, db: Session = Depends(get_db)):
         media_type=file_record.mime_type
     )
 
-@router.get("/documents/{investigation_id}")
-def get_documents(investigation_id: int, db: Session = Depends(get_db)):
+@router.get("/documents/{investigation_id}", response_model=list[FileResponseSchema])
+def get_documents(
+    investigation_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Get only documents (PDFs, Word docs, etc.)"""
-    return get_files(investigation_id, file_type='document', db=db)
+    return get_files(investigation_id, file_type='document', current_user=current_user, db=db)
 
-@router.get("/images/{investigation_id}")
-def get_images(investigation_id: int, db: Session = Depends(get_db)):
+@router.get("/images/{investigation_id}", response_model=list[FileResponseSchema])
+def get_images(
+    investigation_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Get only images"""
-    return get_files(investigation_id, file_type='image', db=db)
+    return get_files(investigation_id, file_type='image', current_user=current_user, db=db)
 
 @router.delete("/{file_id}")
-def delete_file(file_id: int, db: Session = Depends(get_db)):
+def delete_file(
+    file_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Delete any file"""
-    file_record = db.query(File).filter(File.id == file_id).first()
+    file_record = db.query(models.File).join(
+        models.Investigation,
+        models.Investigation.id == models.File.investigation_id
+    ).filter(
+        models.File.id == file_id,
+        models.Investigation.user_id == current_user.id
+    ).first()
+    
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
     

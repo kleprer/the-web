@@ -1,100 +1,92 @@
-// App.js
-import React, { useState, useEffect, createContext, useContext } from 'react';
+// frontend/src/App.jsx - ДОБАВЬ ЭТО ПРОВЕРКИ
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Auth from './pages/Auth';
 import BoardSelection from './pages/BoardSelection';
 import InvestigationBoard from './pages/InvestigationBoard';
 import Timeline from './pages/Timeline';
 import EvidenceStorage from './pages/EvidenceStorage';
-import Navbar from './components/Navbar';
+import { apiService } from './services/api';
 import './App.css';
 
-// Создаем контекст
-export const AuthContext = createContext();
-
-// Хук для использования контекста
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+// Компонент для перенаправления
+const AppRoutes = () => {
+  const { isAuthenticated, loading } = useAuth();
+  
+  // Проверяем токены при загрузке
+  useEffect(() => {
+    const checkTokens = () => {
+      const accessToken = localStorage.getItem('access_token');
+      const refreshToken = localStorage.getItem('refresh_token');
+      const user = localStorage.getItem('user');
+      
+      console.log('🔍 Проверка токенов при загрузке:');
+      console.log('   access_token:', accessToken ? 'есть' : 'нет');
+      console.log('   refresh_token:', refreshToken ? 'есть' : 'нет');
+      console.log('   user:', user ? 'есть' : 'нет');
+    };
+    
+    checkTokens();
+  }, []);
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#151516] flex items-center justify-center">
+        <div className="text-white">Загрузка...</div>
+      </div>
+    );
   }
-  return context;
+  
+  return (
+    <Routes>
+      {/* Авторизация */}
+      <Route 
+        path="/auth" 
+        element={!isAuthenticated ? <Auth /> : <Navigate to="/boards" replace />} 
+      />
+      
+      {/* Защищенные маршруты */}
+      <Route 
+        path="/boards" 
+        element={isAuthenticated ? <BoardSelection /> : <Navigate to="/auth" replace />} 
+      />
+      
+      <Route 
+        path="/board/:boardId" 
+        element={isAuthenticated ? <InvestigationBoard /> : <Navigate to="/auth" replace />} 
+      />
+      
+      <Route 
+        path="/timeline/:boardId" 
+        element={isAuthenticated ? <Timeline /> : <Navigate to="/auth" replace />} 
+      />
+      
+      <Route 
+        path="/evidence/:boardId" 
+        element={isAuthenticated ? <EvidenceStorage /> : <Navigate to="/auth" replace />} 
+      />
+      
+      {/* Перенаправление */}
+      <Route 
+        path="/" 
+        element={<Navigate to={isAuthenticated ? "/boards" : "/auth"} replace />} 
+      />
+      
+      <Route path="*" element={<Navigate to="/auth" replace />} />
+    </Routes>
+  );
 };
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Проверяем сохраненного пользователя при загрузке
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
-  }, []);
-
-  const login = (userData) => {
-    setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
-    localStorage.setItem('userId', userData.id);
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('userId');
-  };
-
-  if (loading) {
-    return <div className="min-h-screen bg-[#151516] flex items-center justify-center">
-      <div className="text-white">Загрузка...</div>
-    </div>;
-  }
-
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthProvider>
       <Router>
         <div className="App bg-[#151516] min-h-screen">
-          <Routes>
-            {/* Авторизация */}
-            <Route 
-              path="/auth" 
-              element={!user ? <Auth /> : <Navigate to="/boards" replace />} 
-            />
-            
-            {/* Защищенные маршруты */}
-            <Route 
-              path="/boards" 
-              element={user ? <BoardSelection /> : <Navigate to="/auth" replace />} 
-            />
-            
-            <Route 
-              path="/board/:boardId" 
-              element={user ? <InvestigationBoard /> : <Navigate to="/auth" replace />} 
-            />
-            
-            <Route 
-              path="/timeline/:boardId" 
-              element={user ? <Timeline /> : <Navigate to="/auth" replace />} 
-            />
-            
-            <Route 
-              path="/evidence/:boardId" 
-              element={user ? <EvidenceStorage /> : <Navigate to="/auth" replace />} 
-            />
-            
-            {/* Перенаправление */}
-            <Route 
-              path="/" 
-              element={<Navigate to={user ? "/boards" : "/auth"} replace />} 
-            />
-            
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <AppRoutes />
         </div>
       </Router>
-    </AuthContext.Provider>
+    </AuthProvider>
   );
 }
 

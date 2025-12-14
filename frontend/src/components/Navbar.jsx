@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../App';
+import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 
 const Navbar = ({ currentBoardName = "Текущая доска" }) => {

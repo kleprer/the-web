@@ -3,41 +3,31 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthForm from '../components/AuthForm';
 import Navbar from '../components/Navbar';
+import { useAuth } from '../context/AuthContext'; // Добавляем импорт!
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({
-    email: '',
-    username: '',
-    password: '',
-    login: ''
-  });
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
+  // Если пользователь уже авторизован, перенаправляем на главную
+  if (isAuthenticated) {
+    navigate('/boards');
+    return null;
+  }
 
   const handleSwitchMode = () => {
     setIsLogin(!isLogin);
-    setFormData({ email: '', username: '', password: '', login: '' });
   };
 
   return (
-    <div className="bg-[#151516]">
+    <div className="bg-[#151516] min-h-screen">
       <Navbar />
       {/* Левая половина - форма */}
       <div className="flex items-end justify-end absolute inset-0 gap-[10rem]">
         <div className="flex-1 flex justify-center pb-[14rem] pl-[15rem] w-full">
           <AuthForm
             isLogin={isLogin}
-            formData={formData}
-            onInputChange={handleInputChange}
-            onSubmit={() => {}}
             onSwitchMode={handleSwitchMode}
           />
         </div>
