@@ -1,4 +1,3 @@
-# backend/models/models.py - ФИНАЛЬНЫЙ РАБОЧИЙ ВАРИАНТ
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, JSON, Boolean
 from database import Base
 import hashlib

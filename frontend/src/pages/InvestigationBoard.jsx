@@ -1,4 +1,3 @@
-// frontend/src/pages/InvestigationBoard.jsx
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import CaseCard from '../components/CaseCard';
@@ -76,30 +75,27 @@ const InvestigationBoard = () => {
           };
 
           await apiService.saveBoardState(boardId, boardData);
-          console.log('✅ Состояние доски сохранено');
+          console.log('Состояние доски сохранено');
           setLastSaveTime(Date.now());
           needsSaveRef.current = false;
         } catch (error) {
-          console.error('❌ Ошибка сохранения состояния доски:', error);
+          console.error('Ошибка сохранения состояния доски:', error);
         }
       }
-    }, 1000); // Уменьшил время для более быстрого сохранения
+    }, 1000); 
   }, [boardId, cards, texts, images, connections]);
 
-  // 🔥 ВЫЗЫВАЕМ АВТОСОХРАНЕНИЕ ПРИ ЛЮБОМ ИЗМЕНЕНИИ
   useEffect(() => {
     if (cards.length > 0 || texts.length > 0 || images.length > 0 || connections.length > 0) {
       scheduleAutoSave();
     }
   }, [cards, texts, images, connections, scheduleAutoSave]);
 
-  // 🔥 ФУНКЦИЯ ДЛЯ ПРИНУДИТЕЛЬНОГО СОХРАНЕНИЯ
   const markForSave = useCallback(() => {
     needsSaveRef.current = true;
     scheduleAutoSave();
   }, [scheduleAutoSave]);
 
-  // ФУНКЦИИ ДЛЯ РАБОТЫ С ЭЛЕМЕНТАМИ
   const getAllElements = useCallback(() => [
     ...cards.map(card => ({ ...card, type: 'card' })),
     ...texts.map(text => ({ ...text, type: 'text' })),
@@ -142,28 +138,26 @@ const InvestigationBoard = () => {
     return null;
   }, [getAllElements]);
 
-  // 🔥 УЛУЧШЕННАЯ ФУНКЦИЯ СОЗДАНИЯ СОЕДИНЕНИЯ
   const createConnection = (startElement, endElement) => {
     console.log('🔄 Создание соединения между:', startElement.id, 'и', endElement.id);
     
     if (!startElement || !endElement) {
-      console.log('❌ Один из элементов не найден');
+      console.log('Один из элементов не найден');
       return null;
     }
 
     if (startElement.id === endElement.id) {
-      console.log('❌ Нельзя соединить элемент с самим собой');
+      console.log('Нельзя соединить элемент с самим собой');
       return null;
     }
 
-    // Проверяем, не существует ли уже такое соединение
     const connectionExists = connections.some(conn => 
       (conn.start.elementId === startElement.id && conn.end.elementId === endElement.id) ||
       (conn.start.elementId === endElement.id && conn.end.elementId === startElement.id)
     );
 
     if (connectionExists) {
-      console.log('❌ Соединение уже существует');
+      console.log('Соединение уже существует');
       return null;
     }
 
@@ -184,7 +178,6 @@ const InvestigationBoard = () => {
     return newConnection;
   };
 
-  // ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ ПОЗИЦИЙ СОЕДИНЕНИЙ
   const getConnectionPositions = useCallback((connection) => {
     const allElements = getAllElements();
     const startElement = allElements.find(el => el.id === connection.start.elementId);
@@ -200,7 +193,6 @@ const InvestigationBoard = () => {
     };
   }, [getAllElements]);
 
-  // 🔥 ИСПРАВЛЕННЫЙ ОБРАБОТЧИК КЛИКА ДЛЯ СОЕДИНЕНИЙ
   const handleConnectionClick = useCallback((e) => {
     if (!isConnecting) return;
     if (editingElementId) return;
@@ -209,13 +201,13 @@ const InvestigationBoard = () => {
     const clickX = e.clientX - rect.left - canvasOffset.x;
     const clickY = e.clientY - rect.top - canvasOffset.y;
 
-    console.log('🎯 Клик в режиме соединения:', { clickX, clickY });
+    console.log(' Клик в режиме соединения:', { clickX, clickY });
     
     const element = findElementAtPoint(clickX, clickY);
-    console.log('🔍 Найден элемент:', element ? `${element.type}:${element.id}` : 'null');
+    console.log(' Найден элемент:', element ? `${element.type}:${element.id}` : 'null');
 
     if (!element) {
-      console.log('❌ Клик по пустому месту, сбрасываем соединение');
+      console.log(' Клик по пустому месту, сбрасываем соединение');
       setConnectingStart(null);
       setTempConnectionEnd(null);
       setSelectedElements(new Set());
@@ -223,26 +215,23 @@ const InvestigationBoard = () => {
     }
 
     if (!connectingStart) {
-      // ВЫБОР ПЕРВОГО ЭЛЕМЕНТА
-      console.log('✅ Выбран ПЕРВЫЙ элемент:', element.id);
+      console.log(' Выбран ПЕРВЫЙ элемент:', element.id);
       setConnectingStart(element);
       setSelectedElements(new Set([element.id]));
     } else {
-      // ВЫБОР ВТОРОГО ЭЛЕМЕНТА
-      console.log('✅ Выбран ВТОРОЙ элемент:', element.id);
+      console.log(' Выбран ВТОРОЙ элемент:', element.id);
       
       const newConnection = createConnection(connectingStart, element);
       
       if (newConnection) {
-        console.log('🔄 Добавляем соединение в массив...');
+        console.log(' Добавляем соединение в массив...');
         setConnections(prev => {
           const newConnections = [...prev, newConnection];
-          console.log('✅ Новый массив соединений:', newConnections);
+          console.log(' Новый массив соединений:', newConnections);
           return newConnections;
         });
       }
       
-      // СБРАСЫВАЕМ СОСТОЯНИЕ
       setConnectingStart(null);
       setTempConnectionEnd(null);
       setSelectedElements(new Set());
@@ -252,7 +241,6 @@ const InvestigationBoard = () => {
     e.preventDefault();
   }, [isConnecting, connectingStart, canvasOffset, editingElementId, findElementAtPoint, connections, createConnection]);
 
-  // 🔥 ВОССТАНОВЛЕННЫЙ ОБРАБОТЧИК НАЖАТИЯ МЫШИ (как в работающей версии)
   const handleCanvasMouseDown = (e) => {
     console.log('🖱️ MouseDown - режим соединения:', isConnecting);
     
@@ -262,7 +250,6 @@ const InvestigationBoard = () => {
     const clickX = e.clientX - rect.left - canvasOffset.x;
     const clickY = e.clientY - rect.top - canvasOffset.y;
 
-    // ЕСЛИ РЕЖИМ СОЕДИНЕНИЯ - ВЫЗЫВАЕМ ОБРАБОТЧИК СОЕДИНЕНИЙ
     if (isConnecting) {
       handleConnectionClick(e);
       return;
@@ -279,7 +266,6 @@ const InvestigationBoard = () => {
       if (clickedElement) {
         handleElementSelect(clickedElement.id, e.shiftKey);
         
-        // 🔥 ВОССТАНОВИЛ: НАЧИНАЕМ ПЕРЕТАСКИВАНИЕ ДАЖЕ ЕСЛИ ЭЛЕМЕНТ УЖЕ ВЫБРАН
         setIsDraggingSelection(true);
         setDragStart({ 
           x: e.clientX, 
@@ -290,7 +276,7 @@ const InvestigationBoard = () => {
               id: el.id, 
               type: el.type, 
               position: { ...el.position },
-              originalPosition: { ...el.position } // Сохраняем оригинальную позицию
+              originalPosition: { ...el.position } 
             }))
         });
       } else {
@@ -299,7 +285,6 @@ const InvestigationBoard = () => {
     }
   };
 
-  // 🔥 ВОССТАНОВЛЕННЫЙ ОБРАБОТЧИК ПЕРЕМЕЩЕНИЯ МЫШИ
   const handleCanvasMouseMove = useCallback((e) => {
     if (editingElementId) return;
 
@@ -330,7 +315,6 @@ const InvestigationBoard = () => {
       const deltaX = e.clientX - dragStart.x;
       const deltaY = e.clientY - dragStart.y;
 
-      // 🔥 ОБНОВЛЯЕМ ПОЗИЦИИ ВСЕХ ВЫБРАННЫХ ЭЛЕМЕНТОВ
       dragStart.initialPositions.forEach(({ id, type, originalPosition }) => {
         const newPosition = {
           x: originalPosition.x + deltaX,
@@ -358,7 +342,6 @@ const InvestigationBoard = () => {
     dragStart, editingElementId, getAllElements
   ]);
 
-  // 🔥 ВОССТАНОВЛЕННЫЙ ОБРАБОТЧИК ОТПУСКАНИЯ МЫШИ
   const handleCanvasMouseUp = useCallback(() => {
     if (isSelecting && selectionRect) {
       const allElements = getAllElements();
@@ -383,13 +366,11 @@ const InvestigationBoard = () => {
     setIsDraggingSelection(false);
     setDragStart(null);
 
-    // 🔥 СОХРАНЯЕМ ПОСЛЕ ПЕРЕТАСКИВАНИЯ
     if (isDraggingSelection) {
       markForSave();
     }
   }, [isSelecting, selectionRect, selectedElements, getAllElements, isDraggingSelection, markForSave]);
 
-  // ОБРАБОТЧИК КЛАВИАТУРЫ ДЛЯ УДАЛЕНИЯ
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Delete' && selectedElements.size > 0) {
@@ -401,7 +382,6 @@ const InvestigationBoard = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [selectedElements]);
 
-  // УДАЛЕНИЕ ВЫБРАННЫХ ЭЛЕМЕНТОВ
   const handleDeleteSelected = () => {
     if (selectedElements.size === 0) return;
 
@@ -422,7 +402,6 @@ const InvestigationBoard = () => {
     markForSave();
   };
 
-  // УДАЛЕНИЕ СОЕДИНЕНИЙ ПРИ УДАЛЕНИИ ЭЛЕМЕНТОВ
   useEffect(() => {
     const allElementIds = new Set(getAllElements().map(el => el.id));
     setConnections(prev => prev.filter(conn => 
@@ -522,7 +501,6 @@ const InvestigationBoard = () => {
     setSelectedElements(new Set());
   };
 
-  // 🔥 ОБРАБОТЧИКИ РЕДАКТИРОВАНИЯ ЭЛЕМЕНТОВ
   const handleCardEdit = (id, newData) => {
     if (newData._delete) {
       setCards(prev => prev.filter(card => card.id !== id));

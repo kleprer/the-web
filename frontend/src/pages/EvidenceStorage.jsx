@@ -1,4 +1,3 @@
-// frontend/src/pages/EvidenceStorage.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { ExportOutlined, FolderAddOutlined, FileAddOutlined } from '@ant-design/icons';

@@ -1,4 +1,3 @@
-# backend/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -12,11 +11,10 @@ from api.note import router as notes_router
 from api.search import router as search_router
 from api.user import router as user_router
 from api.board import router as board_router
-from datetime import datetime  # Добавь этот импорт!
+from datetime import datetime 
 
-# 🔥 УДАЛЯЕМ И ПЕРЕСОЗДАЕМ ТАБЛИЦЫ С НОВОЙ СХЕМОЙ
-models.Base.metadata.drop_all(bind=engine)  # Удаляем старые таблицы
-models.Base.metadata.create_all(bind=engine)  # Создаем новые с password_hash
+models.Base.metadata.drop_all(bind=engine)
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Journalist Assistant API",
@@ -37,7 +35,6 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
-# Подключите все роутеры
 app.include_router(auth_router)
 app.include_router(investigations_router)
 app.include_router(timelines_router)

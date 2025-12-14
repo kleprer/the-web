@@ -1,9 +1,8 @@
-// pages/Auth.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthForm from '../components/AuthForm';
 import Navbar from '../components/Navbar';
-import { useAuth } from '../context/AuthContext'; // Добавляем импорт!
+import { useAuth } from '../context/AuthContext'; 
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);

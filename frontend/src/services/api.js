@@ -1,5 +1,3 @@
-// frontend/src/services/api.js - ПЕРЕПИШИ ВЕСЬ КЛАСС
-
 const API_BASE_URL = 'http://localhost:8000';
 
 class ApiService {
@@ -10,9 +8,9 @@ class ApiService {
     this.accessToken = localStorage.getItem('access_token');
     this.refreshToken = localStorage.getItem('refresh_token');
     
-    console.log('🔧 ApiService инициализирован:');
-    console.log('   Access Token:', this.accessToken ? 'есть' : 'нет');
-    console.log('   Refresh Token:', this.refreshToken ? 'есть' : 'нет');
+    console.log(' ApiService инициализирован:');
+    console.log(' Access Token:', this.accessToken ? 'есть' : 'нет');
+    console.log(' Refresh Token:', this.refreshToken ? 'есть' : 'нет');
   }
 
   setTokens(accessToken, refreshToken) {
@@ -40,7 +38,7 @@ class ApiService {
 
   async refreshAccessToken() {
     try {
-      console.log('🔄 Попытка обновить access token...');
+      console.log(' Попытка обновить access token...');
       
       if (!this.refreshToken) {
         throw new Error('No refresh token');
@@ -65,12 +63,12 @@ class ApiService {
       // Обновляем токены
       this.setTokens(data.access_token, data.refresh_token);
       
-      console.log('✅ Токен обновлен');
+      console.log(' Токен обновлен');
       
       return data.access_token;
       
     } catch (error) {
-      console.error('❌ Ошибка обновления токена:', error);
+      console.error(' Ошибка обновления токена:', error);
       this.clearTokens();
       throw error;
     }
@@ -89,7 +87,7 @@ class ApiService {
       headers['Authorization'] = `Bearer ${this.accessToken}`;
     }
 
-    console.log(`📤 ${options.method || 'GET'} ${endpoint}`);
+    console.log(` ${options.method || 'GET'} ${endpoint}`);
     console.log('   Headers:', { ...headers, Authorization: 'Bearer ***' });
 
     let config = {
@@ -102,7 +100,7 @@ class ApiService {
 
       // Если токен истек (401) и есть refresh token
       if (response.status === 401 && this.refreshToken) {
-        console.log('🔄 Токен истек, пробуем обновить...');
+        console.log(' Токен истек, пробуем обновить...');
         
         try {
           const newAccessToken = await this.refreshAccessToken();
@@ -114,23 +112,23 @@ class ApiService {
           response = await fetch(url, config);
           
         } catch (refreshError) {
-          console.error('❌ Не удалось обновить токен:', refreshError);
+          console.error(' Не удалось обновить токен:', refreshError);
           this.clearTokens();
           return Promise.reject(new Error('Session expired'));
         }
       }
 
       if (!response.ok) {
-        console.error(`❌ HTTP error ${response.status} for ${endpoint}`);
+        console.error(` HTTP error ${response.status} for ${endpoint}`);
         return Promise.reject(new Error(`HTTP error ${response.status}`));
       }
 
       const data = await response.json();
-      console.log(`📥 Response from ${endpoint}:`, data);
+      console.log(` Response from ${endpoint}:`, data);
       return data;
 
     } catch (error) {
-      console.error(`💥 Request error for ${endpoint}:`, error);
+      console.error(` Request error for ${endpoint}:`, error);
       throw error;
     }
   }
@@ -138,14 +136,14 @@ class ApiService {
   // 🔐 АВТОРИЗАЦИЯ
   async login(credentials) {
     try {
-      console.log('🔑 Попытка входа:', credentials);
+      console.log(' Попытка входа:', credentials);
       
       const response = await this.request('/auth/login', {
         method: 'POST',
         body: JSON.stringify(credentials),
       });
 
-      console.log('✅ Успешный вход:', response);
+      console.log(' Успешный вход:', response);
       
       if (response.access_token) {
         this.setTokens(response.access_token, response.refresh_token);
@@ -155,21 +153,21 @@ class ApiService {
       }
       
     } catch (error) {
-      console.error('❌ Ошибка входа:', error);
+      console.error(' Ошибка входа:', error);
       throw error;
     }
   }
 
   async signup(userData) {
     try {
-      console.log('📝 Регистрация:', userData);
+      console.log(' Регистрация:', userData);
       
       const response = await this.request('/auth/signup', {
         method: 'POST',
         body: JSON.stringify(userData),
       });
 
-      console.log('✅ Успешная регистрация:', response);
+      console.log(' Успешная регистрация:', response);
       
       if (response.access_token) {
         this.setTokens(response.access_token, response.refresh_token);
@@ -179,33 +177,33 @@ class ApiService {
       }
       
     } catch (error) {
-      console.error('❌ Ошибка регистрации:', error);
+      console.error(' Ошибка регистрации:', error);
       throw error;
     }
   }
 
   async getCurrentUser() {
     try {
-      console.log('👤 Запрос информации о пользователе...');
+      console.log(' Запрос информации о пользователе...');
       
       // Сначала пробуем /auth/me
       const response = await this.request('/auth/me');
-      console.log('✅ Информация о пользователе:', response);
+      console.log(' Информация о пользователе:', response);
       return response;
       
     } catch (error) {
-      console.log('⚠️ /auth/me не работает, пробуем /auth/public/me');
+      console.log(' /auth/me не работает, пробуем /auth/public/me');
       
       try {
         // Если /auth/me не работает, пробуем публичный endpoint
         const response = await fetch(`${this.baseURL}/auth/public/me?token=${this.accessToken}`);
         if (response.ok) {
           const data = await response.json();
-          console.log('✅ Публичная информация о пользователе:', data);
+          console.log(' Публичная информация о пользователе:', data);
           return data;
         }
       } catch (e) {
-        console.error('❌ Оба endpoints не работают:', e);
+        console.error(' Оба endpoints не работают:', e);
       }
       
       return { authenticated: false };
@@ -217,7 +215,7 @@ class ApiService {
     return Promise.resolve();
   }
 
-  // 📋 ИССЛЕДОВАНИЯ
+  //  ИССЛЕДОВАНИЯ
   async getInvestigations() {
     return this.request('/investigations');
   }
@@ -246,7 +244,7 @@ class ApiService {
     });
   }
 
-  // 📊 ДОСКА
+  //  ДОСКА
   async saveBoardState(investigationId, boardData) {
     return this.request(`/board/${investigationId}/state`, {
       method: 'PUT',
@@ -258,7 +256,7 @@ class ApiService {
     return this.request(`/board/${investigationId}/state`);
   }
 
-  // 📅 ТАЙМЛАЙН
+  //  ТАЙМЛАЙН
   async getTimelineEvents(investigationId) {
     return this.request(`/timelines/${investigationId}/events`);
   }
@@ -283,7 +281,7 @@ class ApiService {
     });
   }
 
-  // 📁 ФАЙЛЫ
+  //  ФАЙЛЫ
   async uploadFile(investigationId, file, metadata = {}) {
     const formData = new FormData();
     formData.append('file', file);
@@ -338,7 +336,7 @@ class ApiService {
     });
   }
 
-  // 📝 ЗАМЕТКИ
+  //  ЗАМЕТКИ
   async getNotes(investigationId) {
     return this.request(`/notes/${investigationId}/notes`);
   }
@@ -363,7 +361,7 @@ class ApiService {
     });
   }
 
-  // 🔍 ПОИСК
+  //  ПОИСК
   async globalSearch(query) {
     return this.request(`/search/global?query=${encodeURIComponent(query)}`);
   }
@@ -372,7 +370,7 @@ class ApiService {
     return this.request(`/search/investigation/${investigationId}?query=${encodeURIComponent(query)}`);
   }
 
-  // 👤 ПОЛЬЗОВАТЕЛИ
+  //  ПОЛЬЗОВАТЕЛИ
   async getUserProfile() {
     return this.request('/users/me');
   }

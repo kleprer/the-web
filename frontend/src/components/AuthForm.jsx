@@ -1,11 +1,10 @@
-// components/AuthForm.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import InputField from './InputField';
 import ButtonFilled from './ButtonFilled';
 import ButtonOutline from './ButtonOutline';
 import { apiService } from '../services/api';
-import { useAuth } from '../context/AuthContext'; // Измененный импорт!
+import { useAuth } from '../context/AuthContext';
 
 const AuthForm = ({ isLogin, onSwitchMode }) => {
   const [formData, setFormData] = useState({
@@ -26,7 +25,6 @@ const AuthForm = ({ isLogin, onSwitchMode }) => {
     }));
   };
 
-// frontend/src/components/AuthForm.jsx - ИСПРАВЬ ОБРАБОТКУ ОТВЕТА
 const handleSubmit = async (e) => {
   e.preventDefault();
   setLoading(true);
@@ -38,9 +36,8 @@ const handleSubmit = async (e) => {
     let response;
     
     if (isLogin) {
-      // 🔴 ВАЖНО: используем правильные поля для логина
       response = await apiService.login({
-        username: formData.login,  // Поле называется login
+        username: formData.login, 
         password: formData.password
       });
     } else {
@@ -53,14 +50,13 @@ const handleSubmit = async (e) => {
 
     console.log('📥 Ответ от сервера:', response);
 
-    // 🔴 ПРОБЛЕМА БЫЛА ЗДЕСЬ: login ожидает тот же объект, что вернул сервер
-    login(response);  // Передаем ВЕСЬ объект response
+    login(response);
     
-    console.log('✅ Успешная авторизация, переход к /boards');
+    console.log('Успешная авторизация, переход к /boards');
     navigate('/boards');
     
   } catch (err) {
-    console.error('❌ Ошибка авторизации:', err);
+    console.error('Ошибка авторизации:', err);
     setError(err.message || 'Произошла ошибка');
   } finally {
     setLoading(false);

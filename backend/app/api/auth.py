@@ -1,4 +1,3 @@
-# backend/api/auth.py
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -41,12 +40,12 @@ def signup(user: UserSignup, db: Session = Depends(get_db)):
             detail="Пользователь с таким именем или email уже существует"
         )
     
-    password_hash=models.User.get_password_hash(user.password),  # ✅ Сохраняем хеш
+    password_hash=models.User.get_password_hash(user.password),  #Сохраняем хеш
     
     new_user = models.User(
         username=user.username,
         email=user.email,
-        password_hash=models.User.get_password_hash(user.password),  # ✅ ХЕШИРУЕМ!
+        password_hash=models.User.get_password_hash(user.password),
         created_at=datetime.now(),
         is_active=True
     )
@@ -67,7 +66,6 @@ def signup(user: UserSignup, db: Session = Depends(get_db)):
         email=new_user.email
     )
 
-# backend/api/auth.py - ПЕРЕПИШИ МЕТОД login
 @router.post("/login", response_model=TokenResponse)
 def login(user: UserLogin, db: Session = Depends(get_db)):
     """Вход пользователя с отладкой"""
@@ -77,13 +75,13 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.username == user.username).first()
     
     if not db_user:
-        print(f"❌ Пользователь {user.username} не найден")
+        print(f"Пользователь {user.username} не найден")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неправильное имя пользователя или пароль"
         )
     
-    print(f"✅ Пользователь найден: id={db_user.id}")
+    print(f"Пользователь найден: id={db_user.id}")
     print(f"   password_hash: {db_user.password_hash}")
     print(f"   password (old): {db_user.password}")
     
@@ -126,7 +124,7 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
                 pass
     
     if not password_correct:
-        print(f"❌ Неправильный пароль для пользователя {user.username}")
+        print(f"Неправильный пароль для пользователя {user.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неправильное имя пользователя или пароль"
@@ -138,7 +136,7 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
             detail="Пользователь неактивен"
         )
     
-    print(f"✅ Успешный вход для {user.username}")
+    print(f" Успешный вход для {user.username}")
     
     # Создаем токены
     access_token = create_access_token(data={"sub": db_user.username})
@@ -167,7 +165,6 @@ def simple_login(user: UserLogin, db: Session = Depends(get_db)):
         "message": "Login successful"
     }
 
-# backend/api/auth.py - ДОБАВЬ ЭТОТ ЭНДПОИНТ В КОНЕЦ ФАЙЛА
 @router.get("/debug-user/{username}")
 def debug_user(username: str, db: Session = Depends(get_db)):
     """Отладочный endpoint - посмотреть пользователя в базе"""

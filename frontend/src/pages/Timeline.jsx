@@ -1,4 +1,3 @@
-// frontend/src/pages/Timeline.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { PlusOutlined } from '@ant-design/icons';
@@ -53,12 +52,12 @@ const Timeline = () => {
     try {
       console.log('🎯 Создание события с данными:', newEventData);
       const createdEvent = await apiService.createTimelineEvent(boardId, newEventData);
-      console.log('✅ Событие создано:', createdEvent);
+      console.log(' Событие создано:', createdEvent);
       
       setEvents(prev => [...prev, createdEvent].sort((a, b) => new Date(a.event_date) - new Date(b.event_date)));
       setShowNewEventForm(false);
     } catch (error) {
-      console.error('❌ Ошибка создания события:', error);
+      console.error(' Ошибка создания события:', error);
       alert('Ошибка создания события: ' + error.message);
     }
   };

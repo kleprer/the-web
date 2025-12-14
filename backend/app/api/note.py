@@ -1,4 +1,3 @@
-# backend/api/note.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -17,7 +16,7 @@ def create_note(
     db: Session = Depends(get_db)
 ):
     """Create a new note"""
-    # Verify investigation exists and belongs to user
+
     investigation = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id,
         models.Investigation.user_id == current_user.id
@@ -47,7 +46,7 @@ def get_investigation_notes(
     db: Session = Depends(get_db)
 ):
     """Get all notes for investigation"""
-    # Verify investigation exists and belongs to user
+
     investigation = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id,
         models.Investigation.user_id == current_user.id
