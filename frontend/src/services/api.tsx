@@ -1,10 +1,16 @@
+import { LoginCredentials, SignupCredentials, AuthResponse, TokenRefreshResponse, UserInfoResponse, UploadMetadata } from '../types/api';
+import { Investigation, AppFile, TimelineEvent, BoardState, User } from '../types/index';
+
 const API_BASE_URL = 'http://localhost:8000';
 
 class ApiService {
+  private baseURL: string;
+  private accessToken: string | null;
+  private refreshToken: string | null;
+
   constructor() {
     this.baseURL = API_BASE_URL;
     
-    // Загружаем токены из localStorage
     this.accessToken = localStorage.getItem('access_token');
     this.refreshToken = localStorage.getItem('refresh_token');
     
@@ -13,7 +19,7 @@ class ApiService {
     console.log(' Refresh Token:', this.refreshToken ? 'есть' : 'нет');
   }
 
-  setTokens(accessToken, refreshToken) {
+  setTokens(accessToken: string, refreshToken: string): void {
     this.accessToken = accessToken;
     this.refreshToken = refreshToken;
     
@@ -28,7 +34,7 @@ class ApiService {
     console.log('💾 Токены сохранены в localStorage');
   }
 
-  clearTokens() {
+  clearTokens(): void {
     this.accessToken = null;
     this.refreshToken = null;
     localStorage.removeItem('access_token');
@@ -36,11 +42,11 @@ class ApiService {
     console.log('🗑️ Токены удалены');
   }
 
-  async refreshAccessToken() {
+  async refreshAccessToken(refreshToken: string): Promise<TokenRefreshResponse> {
     try {
       console.log(' Попытка обновить access token...');
       
-      if (!this.refreshToken) {
+      if (!refreshToken) {
         throw new Error('No refresh token');
       }
 
@@ -50,7 +56,7 @@ class ApiService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          refresh_token: this.refreshToken
+          refresh_token: refreshToken
         })
       });
 
@@ -58,14 +64,13 @@ class ApiService {
         throw new Error(`Refresh failed: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as TokenRefreshResponse;
       
-      // Обновляем токены
       this.setTokens(data.access_token, data.refresh_token);
       
       console.log(' Токен обновлен');
       
-      return data.access_token;
+      return data;
       
     } catch (error) {
       console.error(' Ошибка обновления токена:', error);
@@ -74,15 +79,14 @@ class ApiService {
     }
   }
 
-  async request(endpoint, options = {}) {
+  async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     
-    const headers = {
+    const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...options.headers as Record<string, string>,
     };
 
-    // Добавляем токен авторизации, если он есть
     if (this.accessToken) {
       headers['Authorization'] = `Bearer ${this.accessToken}`;
     }
@@ -90,7 +94,7 @@ class ApiService {
     console.log(` ${options.method || 'GET'} ${endpoint}`);
     console.log('   Headers:', { ...headers, Authorization: 'Bearer ***' });
 
-    let config = {
+    let config: RequestInit = {
       ...options,
       headers
     };
@@ -98,15 +102,13 @@ class ApiService {
     try {
       let response = await fetch(url, config);
 
-      // Если токен истек (401) и есть refresh token
       if (response.status === 401 && this.refreshToken) {
         console.log(' Токен истек, пробуем обновить...');
         
         try {
-          const newAccessToken = await this.refreshAccessToken();
+          const newTokens = await this.refreshAccessToken(this.refreshToken);
           
-          // Повторяем запрос с новым токеном
-          headers['Authorization'] = `Bearer ${newAccessToken}`;
+          headers['Authorization'] = `Bearer ${newTokens.access_token}`;
           config.headers = headers;
           
           response = await fetch(url, config);
@@ -123,7 +125,7 @@ class ApiService {
         return Promise.reject(new Error(`HTTP error ${response.status}`));
       }
 
-      const data = await response.json();
+      const data = await response.json() as T;
       console.log(` Response from ${endpoint}:`, data);
       return data;
 
@@ -133,12 +135,11 @@ class ApiService {
     }
   }
 
-  // 🔐 АВТОРИЗАЦИЯ
-  async login(credentials) {
+  async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
       console.log(' Попытка входа:', credentials);
       
-      const response = await this.request('/auth/login', {
+      const response = await this.request<AuthResponse>('/auth/login', {
         method: 'POST',
         body: JSON.stringify(credentials),
       });
@@ -158,11 +159,11 @@ class ApiService {
     }
   }
 
-  async signup(userData) {
+  async signup(userData: SignupCredentials): Promise<AuthResponse> {
     try {
       console.log(' Регистрация:', userData);
       
-      const response = await this.request('/auth/signup', {
+      const response = await this.request<AuthResponse>('/auth/signup', {
         method: 'POST',
         body: JSON.stringify(userData),
       });
@@ -182,12 +183,11 @@ class ApiService {
     }
   }
 
-  async getCurrentUser() {
+  async getCurrentUser(): Promise<UserInfoResponse> {
     try {
       console.log(' Запрос информации о пользователе...');
       
-      // Сначала пробуем /auth/me
-      const response = await this.request('/auth/me');
+      const response = await this.request<UserInfoResponse>('/auth/me');
       console.log(' Информация о пользователе:', response);
       return response;
       
@@ -195,10 +195,9 @@ class ApiService {
       console.log(' /auth/me не работает, пробуем /auth/public/me');
       
       try {
-        // Если /auth/me не работает, пробуем публичный endpoint
         const response = await fetch(`${this.baseURL}/auth/public/me?token=${this.accessToken}`);
         if (response.ok) {
-          const data = await response.json();
+          const data = await response.json() as UserInfoResponse;
           console.log(' Публичная информация о пользователе:', data);
           return data;
         }
@@ -210,79 +209,76 @@ class ApiService {
     }
   }
 
-  async logout() {
+  async logout(): Promise<void> {
     this.clearTokens();
     return Promise.resolve();
   }
 
-  //  ИССЛЕДОВАНИЯ
-  async getInvestigations() {
-    return this.request('/investigations');
+  async getInvestigations(userId?: number): Promise<Investigation[]> {
+    const endpoint = userId ? `/investigations?user_id=${userId}` : '/investigations';
+    return this.request<Investigation[]>(endpoint);
   }
 
-  async createInvestigation(investigationData) {
-    return this.request('/investigations', {
+  async createInvestigation(investigationData: Partial<Investigation>): Promise<Investigation> {
+    return this.request<Investigation>('/investigations', {
       method: 'POST',
       body: JSON.stringify(investigationData),
     });
   }
 
-  async getInvestigation(investigationId) {
-    return this.request(`/investigations/${investigationId}`);
+  async getInvestigation(investigationId: number): Promise<Investigation> {
+    return this.request<Investigation>(`/investigations/${investigationId}`);
   }
 
-  async updateInvestigation(investigationId, investigationData) {
-    return this.request(`/investigations/${investigationId}`, {
+  async updateInvestigation(investigationId: number, investigationData: Partial<Investigation>): Promise<Investigation> {
+    return this.request<Investigation>(`/investigations/${investigationId}`, {
       method: 'PUT',
       body: JSON.stringify(investigationData),
     });
   }
 
-  async deleteInvestigation(investigationId) {
-    return this.request(`/investigations/${investigationId}`, {
+  async deleteInvestigation(investigationId: number): Promise<void> {
+    return this.request<void>(`/investigations/${investigationId}`, {
       method: 'DELETE',
     });
   }
 
-  //  ДОСКА
-  async saveBoardState(investigationId, boardData) {
+  async saveBoardState(investigationId: number, boardData: BoardState): Promise<any> {
     return this.request(`/board/${investigationId}/state`, {
       method: 'PUT',
       body: JSON.stringify({ board_data: boardData }),
     });
   }
 
-  async getBoardState(investigationId) {
-    return this.request(`/board/${investigationId}/state`);
+  async getBoardState(investigationId: number): Promise<{ board_data: BoardState }> {
+    return this.request<{ board_data: BoardState }>(`/board/${investigationId}/state`);
   }
 
-  //  ТАЙМЛАЙН
-  async getTimelineEvents(investigationId) {
-    return this.request(`/timelines/${investigationId}/events`);
+  async getTimelineEvents(investigationId: number): Promise<TimelineEvent[]> {
+    return this.request<TimelineEvent[]>(`/timelines/${investigationId}/events`);
   }
 
-  async createTimelineEvent(investigationId, eventData) {
-    return this.request(`/timelines/${investigationId}/events`, {
+  async createTimelineEvent(investigationId: number, eventData: any): Promise<TimelineEvent> {
+    return this.request<TimelineEvent>(`/timelines/${investigationId}/events`, {
       method: 'POST',
       body: JSON.stringify(eventData),
     });
   }
 
-  async updateTimelineEvent(eventId, eventData) {
-    return this.request(`/timelines/events/${eventId}`, {
+  async updateTimelineEvent(eventId: number, eventData: any): Promise<TimelineEvent> {
+    return this.request<TimelineEvent>(`/timelines/events/${eventId}`, {
       method: 'PUT',
       body: JSON.stringify(eventData),
     });
   }
 
-  async deleteTimelineEvent(eventId) {
-    return this.request(`/timelines/events/${eventId}`, {
+  async deleteTimelineEvent(eventId: number): Promise<void> {
+    return this.request<void>(`/timelines/events/${eventId}`, {
       method: 'DELETE',
     });
   }
 
-  //  ФАЙЛЫ
-  async uploadFile(investigationId, file, metadata = {}) {
+  async uploadFile(investigationId: number, file: File, metadata: UploadMetadata = {}): Promise<AppFile> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('title', metadata.title || file.name);
@@ -290,9 +286,8 @@ class ApiService {
     formData.append('tags', JSON.stringify(metadata.tags || []));
 
     const url = `${this.baseURL}/files/upload/${investigationId}`;
-    const headers = {};
+    const headers: HeadersInit = {};
     
-    // Добавляем токен авторизации
     if (this.accessToken) {
       headers['Authorization'] = `Bearer ${this.accessToken}`;
     }
@@ -317,77 +312,73 @@ class ApiService {
       throw new Error(errorMessage);
     }
 
-    const data = await response.json();
+    const data = await response.json() as AppFile;
     console.log('📥 Файл загружен:', data);
     return data;
   }
 
-  async getFiles(investigationId, fileType = null) {
+  async getFiles(investigationId: number, fileType: string | null = null): Promise<AppFile[]> {
     const endpoint = fileType 
       ? `/files/${fileType}/${investigationId}`
       : `/files?investigation_id=${investigationId}`;
     
-    return this.request(endpoint);
+    return this.request<AppFile[]>(endpoint);
   }
 
-  async deleteFile(fileId) {
-    return this.request(`/files/${fileId}`, {
+  async deleteFile(fileId: number): Promise<void> {
+    return this.request<void>(`/files/${fileId}`, {
       method: 'DELETE',
     });
   }
 
-  //  ЗАМЕТКИ
-  async getNotes(investigationId) {
-    return this.request(`/notes/${investigationId}/notes`);
+  async getNotes(investigationId: number): Promise<any[]> {
+    return this.request<any[]>(`/notes/${investigationId}/notes`);
   }
 
-  async createNote(investigationId, noteData) {
+  async createNote(investigationId: number, noteData: any): Promise<any> {
     return this.request(`/notes/${investigationId}/notes`, {
       method: 'POST',
       body: JSON.stringify(noteData),
     });
   }
 
-  async updateNote(noteId, noteData) {
+  async updateNote(noteId: number, noteData: any): Promise<any> {
     return this.request(`/notes/notes/${noteId}`, {
       method: 'PUT',
       body: JSON.stringify(noteData),
     });
   }
 
-  async deleteNote(noteId) {
+  async deleteNote(noteId: number): Promise<void> {
     return this.request(`/notes/notes/${noteId}`, {
       method: 'DELETE',
     });
   }
 
-  //  ПОИСК
-  async globalSearch(query) {
+  async globalSearch(query: string): Promise<any> {
     return this.request(`/search/global?query=${encodeURIComponent(query)}`);
   }
 
-  async searchInInvestigation(investigationId, query) {
+  async searchInInvestigation(investigationId: number, query: string): Promise<any> {
     return this.request(`/search/investigation/${investigationId}?query=${encodeURIComponent(query)}`);
   }
 
-  //  ПОЛЬЗОВАТЕЛИ
-  async getUserProfile() {
-    return this.request('/users/me');
+  async getUserProfile(): Promise<UserInfoResponse> {
+    return this.request<UserInfoResponse>('/users/me');
   }
 
-  async updateUserProfile(userData) {
-    return this.request('/users/me', {
+  async updateUserProfile(userData: Partial<User>): Promise<User> {
+    return this.request<User>('/users/me', {
       method: 'PUT',
       body: JSON.stringify(userData),
     });
   }
 
-  async deleteUser() {
-    return this.request('/users/me', {
+  async deleteUser(): Promise<void> {
+    return this.request<void>('/users/me', {
       method: 'DELETE',
     });
   }
-
 }
 
 export const apiService = new ApiService();

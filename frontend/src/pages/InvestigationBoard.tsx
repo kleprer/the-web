@@ -7,45 +7,47 @@ import DraggableImage from '../components/DraggableImage';
 import ConnectionLine from '../components/ConnectionLine';
 import Navbar from '../components/Navbar';
 import { apiService } from '../services/api';
+import { Card, Text, Image, Connection, Investigation, BoardState } from '../types/index';
 
-const InvestigationBoard = () => {
-  const { boardId } = useParams();
-  const [investigation, setInvestigation] = useState(null);
-  const [cards, setCards] = useState([]);
-  const [texts, setTexts] = useState([]);
-  const [images, setImages] = useState([]);
-  const [connections, setConnections] = useState([]);
-  const [selectedElements, setSelectedElements] = useState(new Set());
-  const [isMovingCanvas, setIsMovingCanvas] = useState(false);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
-  const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
-  const [isDraggingSelection, setIsDraggingSelection] = useState(false);
-  const [selectionStart, setSelectionStart] = useState(null);
-  const [selectionRect, setSelectionRect] = useState(null);
-  const [connectingStart, setConnectingStart] = useState(null);
-  const [tempConnectionEnd, setTempConnectionEnd] = useState(null);
-  const [dragStart, setDragStart] = useState(null);
-  const [editingElementId, setEditingElementId] = useState(null);
-  const [lastSaveTime, setLastSaveTime] = useState(0);
+const InvestigationBoard: React.FC = () => {
+  const { boardId } = useParams<{ boardId: string }>();
+  const [investigation, setInvestigation] = useState<Investigation | null>(null);
+  const [cards, setCards] = useState<Card[]>([]);
+  const [texts, setTexts] = useState<Text[]>([]);
+  const [images, setImages] = useState<Image[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [selectedElements, setSelectedElements] = useState<Set<string>>(new Set());
+  const [isMovingCanvas, setIsMovingCanvas] = useState<boolean>(false);
+  const [isSelecting, setIsSelecting] = useState<boolean>(false);
+  const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [canvasOffset, setCanvasOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDraggingCanvas, setIsDraggingCanvas] = useState<boolean>(false);
+  const [isDraggingSelection, setIsDraggingSelection] = useState<boolean>(false);
+  const [selectionStart, setSelectionStart] = useState<{ x: number; y: number } | null>(null);
+  const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [connectingStart, setConnectingStart] = useState<{ id: string; type: string; position: { x: number; y: number } } | null>(null);
+  const [tempConnectionEnd, setTempConnectionEnd] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
+  const [dragStart, setDragStart] = useState<{ 
+    x: number; 
+    y: number; 
+    initialPositions: Array<{ id: string; type: string; position: { x: number; y: number }; originalPosition: { x: number; y: number } }> 
+  } | null>(null);
+  const [editingElementId, setEditingElementId] = useState<string | null>(null);
+  const [lastSaveTime, setLastSaveTime] = useState<number>(0);
   
-  const canvasRef = useRef(null);
-  const saveTimeoutRef = useRef(null);
-  const needsSaveRef = useRef(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const needsSaveRef = useRef<boolean>(false);
 
   // Загрузка данных доски
-  useEffect(() => {
-    loadInvestigationData();
-  }, [boardId]);
-
-  const loadInvestigationData = async () => {
+  const loadInvestigationData = useCallback(async (): Promise<void> => {
+    if (!boardId) return;
     try {
-      const investigationData = await apiService.getInvestigation(boardId);
+      const investigationData = await apiService.getInvestigation(parseInt(boardId));
       setInvestigation(investigationData);
 
-      const boardState = await apiService.getBoardState(boardId);
-      const boardData = boardState.board_data;
+      const boardState = await apiService.getBoardState(parseInt(boardId));
+      const boardData = boardState.board_data as BoardState;
       
       setCards(boardData.cards || []);
       setTexts(boardData.texts || []);
@@ -54,10 +56,13 @@ const InvestigationBoard = () => {
     } catch (error) {
       console.error('Ошибка загрузки данных доски:', error);
     }
-  };
+  }, [boardId]);
 
-  // 🔥 УЛУЧШЕННОЕ АВТОСОХРАНЕНИЕ
-  const scheduleAutoSave = useCallback(() => {
+  useEffect(() => {
+    loadInvestigationData();
+  }, [loadInvestigationData]);
+
+  const scheduleAutoSave = useCallback((): void => {
     needsSaveRef.current = true;
     
     if (saveTimeoutRef.current) {
@@ -67,14 +72,14 @@ const InvestigationBoard = () => {
     saveTimeoutRef.current = setTimeout(async () => {
       if (needsSaveRef.current) {
         try {
-          const boardData = {
+          const boardData: BoardState = {
             cards,
             texts,
             images,
             connections
           };
 
-          await apiService.saveBoardState(boardId, boardData);
+          await apiService.saveBoardState(parseInt(boardId!), boardData);
           console.log('Состояние доски сохранено');
           setLastSaveTime(Date.now());
           needsSaveRef.current = false;
@@ -91,19 +96,19 @@ const InvestigationBoard = () => {
     }
   }, [cards, texts, images, connections, scheduleAutoSave]);
 
-  const markForSave = useCallback(() => {
+  const markForSave = useCallback((): void => {
     needsSaveRef.current = true;
     scheduleAutoSave();
   }, [scheduleAutoSave]);
 
-  const getAllElements = useCallback(() => [
-    ...cards.map(card => ({ ...card, type: 'card' })),
-    ...texts.map(text => ({ ...text, type: 'text' })),
-    ...images.map(img => ({ ...img, type: 'image' }))
+  const getAllElements = useCallback((): Array<{ id: string; type: string; position: { x: number; y: number } }> => [
+    ...cards.map(card => ({ ...card, type: 'card' as const })),
+    ...texts.map(text => ({ ...text, type: 'text' as const })),
+    ...images.map(img => ({ ...img, type: 'image' as const }))
   ], [cards, texts, images]);
 
-  const getElementRect = (element) => {
-    const dimensions = {
+  const getElementRect = (element: any): { x: number; y: number; width: number; height: number } => {
+    const dimensions: { [key: string]: { width: number; height: number } } = {
       'card': { width: 320, height: 192 },
       'text': { width: 200, height: 100 },
       'image': { width: 200, height: 150 }
@@ -112,20 +117,20 @@ const InvestigationBoard = () => {
     return {
       x: element.position.x,
       y: element.position.y,
-      width: dimensions[element.type].width,
-      height: dimensions[element.type].height
+      width: dimensions[element.type]?.width || 200,
+      height: dimensions[element.type]?.height || 150
     };
   };
 
-  const getElementCenter = (element) => {
+  const getElementCenter = useCallback((element: any): { x: number; y: number } => {
     const rect = getElementRect(element);
     return {
       x: rect.x + rect.width / 2,
       y: rect.y + rect.height / 2
     };
-  };
+  }, []);
 
-  const findElementAtPoint = useCallback((x, y) => {
+  const findElementAtPoint = useCallback((x: number, y: number): any => {
     const allElements = getAllElements();
     for (let i = allElements.length - 1; i >= 0; i--) {
       const element = allElements[i];
@@ -138,7 +143,7 @@ const InvestigationBoard = () => {
     return null;
   }, [getAllElements]);
 
-  const createConnection = (startElement, endElement) => {
+  const createConnection = (startElement: any, endElement: any): Connection | null => {
     console.log('🔄 Создание соединения между:', startElement.id, 'и', endElement.id);
     
     if (!startElement || !endElement) {
@@ -161,7 +166,7 @@ const InvestigationBoard = () => {
       return null;
     }
 
-    const newConnection = {
+    const newConnection: Connection = {
       id: `conn-${Date.now()}`,
       start: { 
         elementId: startElement.id, 
@@ -178,7 +183,7 @@ const InvestigationBoard = () => {
     return newConnection;
   };
 
-  const getConnectionPositions = useCallback((connection) => {
+  const getConnectionPositions = useCallback((connection: Connection): { start: { x: number; y: number }; end: { x: number; y: number } } | null => {
     const allElements = getAllElements();
     const startElement = allElements.find(el => el.id === connection.start.elementId);
     const endElement = allElements.find(el => el.id === connection.end.elementId);
@@ -191,13 +196,15 @@ const InvestigationBoard = () => {
       start: getElementCenter(startElement),
       end: getElementCenter(endElement)
     };
-  }, [getAllElements]);
+  }, [getAllElements, getElementCenter]);
 
-  const handleConnectionClick = useCallback((e) => {
+  const handleConnectionClick = useCallback((e: React.MouseEvent): void => {
     if (!isConnecting) return;
     if (editingElementId) return;
 
-    const rect = canvasRef.current.getBoundingClientRect();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
     const clickX = e.clientX - rect.left - canvasOffset.x;
     const clickY = e.clientY - rect.top - canvasOffset.y;
 
@@ -216,12 +223,19 @@ const InvestigationBoard = () => {
 
     if (!connectingStart) {
       console.log(' Выбран ПЕРВЫЙ элемент:', element.id);
-      setConnectingStart(element);
+      setConnectingStart({
+        id: element.id,
+        type: element.type,
+        position: getElementCenter(element)
+      });
       setSelectedElements(new Set([element.id]));
     } else {
       console.log(' Выбран ВТОРОЙ элемент:', element.id);
       
-      const newConnection = createConnection(connectingStart, element);
+      const newConnection = createConnection(
+        { id: connectingStart.id, type: connectingStart.type },
+        element
+      );
       
       if (newConnection) {
         console.log(' Добавляем соединение в массив...');
@@ -239,14 +253,16 @@ const InvestigationBoard = () => {
 
     e.stopPropagation();
     e.preventDefault();
-  }, [isConnecting, connectingStart, canvasOffset, editingElementId, findElementAtPoint, connections, createConnection]);
+  }, [isConnecting, connectingStart, canvasOffset, editingElementId, findElementAtPoint, getElementCenter, createConnection]);
 
-  const handleCanvasMouseDown = (e) => {
+  const handleCanvasMouseDown = (e: React.MouseEvent): void => {
     console.log('🖱️ MouseDown - режим соединения:', isConnecting);
     
     if (editingElementId) return;
 
-    const rect = canvasRef.current.getBoundingClientRect();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
     const clickX = e.clientX - rect.left - canvasOffset.x;
     const clickY = e.clientY - rect.top - canvasOffset.y;
 
@@ -274,7 +290,7 @@ const InvestigationBoard = () => {
             .filter(el => selectedElements.has(el.id) || el.id === clickedElement.id)
             .map(el => ({ 
               id: el.id, 
-              type: el.type, 
+              type: el.type as 'card' | 'text' | 'image', 
               position: { ...el.position },
               originalPosition: { ...el.position } 
             }))
@@ -285,10 +301,12 @@ const InvestigationBoard = () => {
     }
   };
 
-  const handleCanvasMouseMove = useCallback((e) => {
+  const handleCanvasMouseMove = useCallback((e: MouseEvent): void => {
     if (editingElementId) return;
 
-    const rect = canvasRef.current.getBoundingClientRect();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
     const currentX = e.clientX - rect.left - canvasOffset.x;
     const currentY = e.clientY - rect.top - canvasOffset.y;
 
@@ -305,10 +323,8 @@ const InvestigationBoard = () => {
         height: Math.abs(currentY - selectionStart.y)
       });
     } else if (isConnecting && connectingStart) {
-      // ВРЕМЕННАЯ ЛИНИЯ СОЕДИНЕНИЯ
-      const startPos = getElementCenter(connectingStart);
       setTempConnectionEnd({ 
-        start: startPos,
+        start: connectingStart.position,
         end: { x: currentX, y: currentY }
       });
     } else if (isDraggingSelection && dragStart && dragStart.initialPositions.length > 0) {
@@ -339,10 +355,10 @@ const InvestigationBoard = () => {
   }, [
     isDraggingCanvas, isSelecting, selectionStart, isConnecting, 
     connectingStart, isDraggingSelection, canvasOffset, 
-    dragStart, editingElementId, getAllElements
+    dragStart, editingElementId
   ]);
 
-  const handleCanvasMouseUp = useCallback(() => {
+  const handleCanvasMouseUp = useCallback((): void => {
     if (isSelecting && selectionRect) {
       const allElements = getAllElements();
       const selected = new Set(selectedElements);
@@ -372,7 +388,17 @@ const InvestigationBoard = () => {
   }, [isSelecting, selectionRect, selectedElements, getAllElements, isDraggingSelection, markForSave]);
 
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    document.addEventListener('mousemove', handleCanvasMouseMove);
+    document.addEventListener('mouseup', handleCanvasMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleCanvasMouseMove);
+      document.removeEventListener('mouseup', handleCanvasMouseUp);
+    };
+  }, [handleCanvasMouseMove, handleCanvasMouseUp]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
       if (e.key === 'Delete' && selectedElements.size > 0) {
         handleDeleteSelected();
       }
@@ -382,7 +408,7 @@ const InvestigationBoard = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [selectedElements]);
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = useCallback((): void => {
     if (selectedElements.size === 0) return;
 
     const allElements = getAllElements();
@@ -400,7 +426,7 @@ const InvestigationBoard = () => {
 
     setSelectedElements(new Set());
     markForSave();
-  };
+  }, [selectedElements, getAllElements, markForSave]);
 
   useEffect(() => {
     const allElementIds = new Set(getAllElements().map(el => el.id));
@@ -409,8 +435,7 @@ const InvestigationBoard = () => {
     ));
   }, [cards, texts, images, getAllElements]);
 
-  // TOOLBAR ACTIONS
-  const handleSelectArea = () => {
+  const handleSelectArea = (): void => {
     setIsSelecting(true);
     setIsMovingCanvas(false);
     setIsConnecting(false);
@@ -419,7 +444,7 @@ const InvestigationBoard = () => {
     setSelectedElements(new Set());
   };
 
-  const handleMoveCanvas = () => {
+  const handleMoveCanvas = (): void => {
     setIsMovingCanvas(!isMovingCanvas);
     setIsSelecting(false);
     setIsConnecting(false);
@@ -428,8 +453,8 @@ const InvestigationBoard = () => {
     setSelectedElements(new Set());
   };
 
-  const handleAddCard = () => {
-    const newCard = {
+  const handleAddCard = (): void => {
+    const newCard: Card = {
       id: `card-${Date.now()}`,
       title: 'Новая карточка',
       articleUrl: '',
@@ -442,8 +467,8 @@ const InvestigationBoard = () => {
     resetTools();
   };
 
-  const handleAddText = () => {
-    const newText = {
+  const handleAddText = (): void => {
+    const newText: Text = {
       id: `text-${Date.now()}`,
       content: 'Новый текст',
       position: { x: 100, y: 150 }
@@ -453,7 +478,7 @@ const InvestigationBoard = () => {
     resetTools();
   };
 
-  const handleConnect = () => {
+  const handleConnect = (): void => {
     const newConnectingState = !isConnecting;
     console.log('🔗 Переключение режима соединения:', newConnectingState);
     setIsConnecting(newConnectingState);
@@ -467,16 +492,16 @@ const InvestigationBoard = () => {
     }
   };
 
-  const handleAddPhoto = async () => {
+  const handleAddPhoto = async (): Promise<void> => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
+    input.onchange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
       if (file) {
         try {
-          // Временно используем локальный URL, можно добавить загрузку на сервер позже
-          const newImage = {
+          const newImage: Image = {
             id: `image-${Date.now()}`,
             url: URL.createObjectURL(file),
             position: { x: 100, y: 200 }
@@ -492,7 +517,7 @@ const InvestigationBoard = () => {
     resetTools();
   };
 
-  const resetTools = () => {
+  const resetTools = (): void => {
     setIsMovingCanvas(false);
     setIsSelecting(false);
     setIsConnecting(false);
@@ -501,7 +526,7 @@ const InvestigationBoard = () => {
     setSelectedElements(new Set());
   };
 
-  const handleCardEdit = (id, newData) => {
+  const handleCardEdit = (id: string, newData: any): void => {
     if (newData._delete) {
       setCards(prev => prev.filter(card => card.id !== id));
       setEditingElementId(null);
@@ -517,7 +542,7 @@ const InvestigationBoard = () => {
     }
   };
 
-  const handleTextEdit = (id, newData) => {
+  const handleTextEdit = (id: string, newData: any): void => {
     if (newData._delete) {
       setTexts(prev => prev.filter(text => text.id !== id));
       setEditingElementId(null);
@@ -533,7 +558,7 @@ const InvestigationBoard = () => {
     }
   };
 
-  const handleImageEdit = (id, newData) => {
+  const handleImageEdit = (id: string, newData: any): void => {
     if (newData._delete) {
       setImages(prev => prev.filter(img => img.id !== id));
       setEditingElementId(null);
@@ -546,12 +571,11 @@ const InvestigationBoard = () => {
     }
   };
 
-  // ВЫДЕЛЕНИЕ ЭЛЕМЕНТОВ
-  const handleElementSelect = (id, isMultiSelect = false) => {
+  const handleElementSelect = (id: string, isMultiSelect: boolean = false): void => {
     if (editingElementId === id) return;
 
     setSelectedElements(prev => {
-      const newSelection = isMultiSelect ? new Set(prev) : new Set();
+      const newSelection = new Set(prev);
       if (newSelection.has(id)) {
         newSelection.delete(id);
       } else {
@@ -561,17 +585,16 @@ const InvestigationBoard = () => {
     });
   };
 
-  const handleElementEditStart = (id) => {
+  const handleElementEditStart = (id: string): void => {
     setEditingElementId(id);
     setSelectedElements(new Set());
   };
 
-  const handleElementEditEnd = () => {
+  const handleElementEditEnd = (): void => {
     setEditingElementId(null);
   };
 
-  // КУРСОР
-  const getCanvasCursor = () => {
+  const getCanvasCursor = (): string => {
     if (editingElementId) return 'default';
     if (isMovingCanvas) return isDraggingCanvas ? 'grabbing' : 'grab';
     if (isSelecting) return 'crosshair';
@@ -581,22 +604,10 @@ const InvestigationBoard = () => {
     return 'default';
   };
 
-  // EVENT LISTENERS
-  useEffect(() => {
-    document.addEventListener('mousemove', handleCanvasMouseMove);
-    document.addEventListener('mouseup', handleCanvasMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleCanvasMouseMove);
-      document.removeEventListener('mouseup', handleCanvasMouseUp);
-    };
-  }, [handleCanvasMouseMove, handleCanvasMouseUp]);
-
   return (
     <div className="relative w-full h-screen bg-[#151516] overflow-hidden">
       <Navbar 
         currentBoardName={investigation?.title || `Доска ${boardId}`} 
-        boards={[]}
       />
       
       <div
@@ -611,7 +622,6 @@ const InvestigationBoard = () => {
         }}
         onMouseDown={handleCanvasMouseDown}
       >
-        {/* SELECTION RECTANGLE */}
         {selectionRect && (
           <div
             className="absolute border-2 border-blue-400 bg-blue-400 bg-opacity-20"
@@ -624,7 +634,6 @@ const InvestigationBoard = () => {
           />
         )}
 
-        {/* ВРЕМЕННАЯ ЛИНИЯ СОЕДИНЕНИЯ */}
         {isConnecting && connectingStart && tempConnectionEnd && (
           <ConnectionLine
             start={tempConnectionEnd.start}
@@ -633,7 +642,6 @@ const InvestigationBoard = () => {
           />
         )}
 
-        {/* ПОСТОЯННЫЕ СОЕДИНЕНИЯ */}
         {connections.map(connection => {
           const positions = getConnectionPositions(connection);
           if (!positions) return null;
@@ -648,7 +656,6 @@ const InvestigationBoard = () => {
           );
         })}
 
-        {/* CARDS */}
         {cards.map(card => (
           <div 
             key={card.id}
@@ -660,7 +667,7 @@ const InvestigationBoard = () => {
               articleUrl={card.articleUrl}
               date={card.date}
               trustLevel={card.trustLevel}
-              position={card.position} // 🔥 ИСПРАВЛЕНО: было initialPosition
+              position={card.position}
               onEdit={handleCardEdit}
               onEditStart={handleElementEditStart}
               onEditEnd={handleElementEditEnd}
@@ -672,7 +679,6 @@ const InvestigationBoard = () => {
           </div>
         ))}
 
-        {/* TEXTS */}
         {texts.map(text => (
           <div 
             key={text.id}
@@ -693,7 +699,6 @@ const InvestigationBoard = () => {
           </div>
         ))}
 
-        {/* IMAGES */}
         {images.map(image => (
           <div 
             key={image.id}
@@ -706,6 +711,7 @@ const InvestigationBoard = () => {
               onEdit={handleImageEdit}
               isEditMode={true}
               isSelected={selectedElements.has(image.id)}
+              isConnectingMode={isConnecting}
               onSelect={handleElementSelect}
             />
           </div>

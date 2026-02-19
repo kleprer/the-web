@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { DraggableTextProps } from '../types/props';
 
-const DraggableText = ({ 
+const DraggableText: React.FC<DraggableTextProps> = ({ 
   id, 
   content, 
   position, 
@@ -14,10 +15,10 @@ const DraggableText = ({
   isEditing = false,
   ...props 
 }) => {
-  const [text, setText] = useState(content);
-  const [pos, setPos] = useState(position);
-  const [isDragging, setIsDragging] = useState(false);
-  const textareaRef = useRef(null);
+  const [text, setText] = useState<string>(content);
+  const [pos, setPos] = useState<{ x: number; y: number }>(position);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (isEditing && textareaRef.current) {
@@ -26,7 +27,7 @@ const DraggableText = ({
     }
   }, [isEditing]);
 
-  const handleMouseDown = (e) => {
+  const handleMouseDown = (e: React.MouseEvent): void => {
     if (isEditing) return;
     
     if (isEditMode && onSelect) {
@@ -36,7 +37,7 @@ const DraggableText = ({
     e.preventDefault();
   };
 
-  const handleMouseMove = (e) => {
+  const handleMouseMove = (e: React.MouseEvent): void => {
     if (!isDragging || isEditing) return;
     
     setPos(prev => ({
@@ -45,17 +46,17 @@ const DraggableText = ({
     }));
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (): void => {
     setIsDragging(false);
   };
 
-  const handleDoubleClick = () => {
+  const handleDoubleClick = (): void => {
     if (isEditMode && !isEditing && onEditStart) {
       onEditStart(id);
     }
   };
 
-  const handleSave = () => {
+  const handleSave = (): void => {
     if (onEdit && text !== content) {
       onEdit(id, text);
     }
@@ -64,13 +65,13 @@ const DraggableText = ({
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = (): void => {
     if (onEdit && window.confirm('Удалить этот текст?')) {
       onEdit(id, { _delete: true });
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = (): void => {
     setText(content);
     if (onEditEnd) {
       onEditEnd();
@@ -110,7 +111,7 @@ const DraggableText = ({
           <textarea
             ref={textareaRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setText(e.target.value)}
             className="w-full h-20 bg-transparent text-white border border-gray-500 p-1 resize-none outline-none"
             autoFocus
           />

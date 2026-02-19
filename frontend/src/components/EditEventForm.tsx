@@ -1,24 +1,29 @@
-// frontend/src/components/EditEventForm.jsx
 import React, { useState } from 'react';
-import { PaperClipOutlined } from '@ant-design/icons';
 import InputField from './InputField';
 import ButtonOutline from './ButtonOutline';
+import { EditEventFormProps } from '../types/props';
 
-const EditEventForm = ({ event, onUpdate, onCancel }) => {
-  const [formData, setFormData] = useState({
+interface FormData {
+  title: string;
+  description: string;
+  event_date: string;
+}
+
+const EditEventForm: React.FC<EditEventFormProps> = ({ event, onUpdate, onCancel }) => {
+  const [formData, setFormData] = useState<FormData>({
     title: event.title,
     description: event.description || '',
     event_date: event.event_date.split('T')[0]
   });
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field: keyof FormData, value: string): void => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     
     if (!formData.event_date || !formData.title) {
@@ -77,7 +82,7 @@ const EditEventForm = ({ event, onUpdate, onCancel }) => {
               onChange={(e) => handleInputChange('description', e.target.value)}
               placeholder="Введите описание события"
               className="w-full border-2 border-white rounded-[20px] bg-transparent text-white placeholder-white placeholder-opacity-60 px-4 py-3 text-[20px] focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 resize-none"
-              rows="3"
+              rows={3}
             />
           </div>
 

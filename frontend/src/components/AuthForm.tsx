@@ -5,63 +5,80 @@ import ButtonFilled from './ButtonFilled';
 import ButtonOutline from './ButtonOutline';
 import { apiService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { AuthFormProps } from '../types/props';
+import { AuthResponse } from '../types/index';
 
-const AuthForm = ({ isLogin, onSwitchMode }) => {
-  const [formData, setFormData] = useState({
+interface FormData {
+  email: string;
+  username: string;
+  password: string;
+  login: string;
+}
+
+const AuthForm: React.FC<AuthFormProps> = ({ isLogin, onSwitchMode }) => {
+  const [formData, setFormData] = useState<FormData>({
     email: '',
     username: '',
     password: '',
     login: ''
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
   const navigate = useNavigate();
-  const { login } = useAuth(); // Используем контекст
+  const { login } = useAuth();
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field: keyof FormData, value: string): void => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setError('');
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
 
-  try {
-    console.log('📤 Отправка данных:', formData);
-    
-    let response;
-    
-    if (isLogin) {
-      response = await apiService.login({
-        username: formData.login, 
-        password: formData.password
+    try {
+      console.log('📤 Отправка данных:', formData);
+      
+      let response: AuthResponse;
+      
+      if (isLogin) {
+        response = await apiService.login({
+          username: formData.login, 
+          password: formData.password
+        });
+      } else {
+        response = await apiService.signup({
+          username: formData.username,
+          password: formData.password,
+          email: formData.email
+        });
+      }
+
+      console.log('📥 Ответ от сервера:', response);
+
+      // ПРЕОБРАЗУЕМ AuthResponse В UserWithTokens
+      login({
+        id: response.user_id,
+        username: response.username,
+        email: response.email,
+        access_token: response.access_token,
+        refresh_token: response.refresh_token,
+        user_id: response.user_id
       });
-    } else {
-      response = await apiService.signup({
-        username: formData.username,
-        password: formData.password,
-        email: formData.email
-      });
+      
+      console.log('Успешная авторизация, переход к /boards');
+      navigate('/boards');
+      
+    } catch (err: any) {
+      console.error('Ошибка авторизации:', err);
+      setError(err.message || 'Произошла ошибка');
+    } finally {
+      setLoading(false);
     }
-
-    console.log('📥 Ответ от сервера:', response);
-
-    login(response);
-    
-    console.log('Успешная авторизация, переход к /boards');
-    navigate('/boards');
-    
-  } catch (err) {
-    console.error('Ошибка авторизации:', err);
-    setError(err.message || 'Произошла ошибка');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <div className="border border-white border-opacity-50 rounded-[20px] bg-transparent p-8 w-[30rem]">

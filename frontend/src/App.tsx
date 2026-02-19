@@ -1,4 +1,3 @@
-// frontend/src/App.jsx - ДОБАВЬ ЭТО ПРОВЕРКИ
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -7,16 +6,13 @@ import BoardSelection from './pages/BoardSelection';
 import InvestigationBoard from './pages/InvestigationBoard';
 import Timeline from './pages/Timeline';
 import EvidenceStorage from './pages/EvidenceStorage';
-import { apiService } from './services/api';
 import './App.css';
 
-// Компонент для перенаправления
-const AppRoutes = () => {
+const AppRoutes: React.FC = () => {
   const { isAuthenticated, loading } = useAuth();
   
-  // Проверяем токены при загрузке
   useEffect(() => {
-    const checkTokens = () => {
+    const checkTokens = (): void => {
       const accessToken = localStorage.getItem('access_token');
       const refreshToken = localStorage.getItem('refresh_token');
       const user = localStorage.getItem('user');
@@ -40,13 +36,11 @@ const AppRoutes = () => {
   
   return (
     <Routes>
-      {/* Авторизация */}
       <Route 
         path="/auth" 
         element={!isAuthenticated ? <Auth /> : <Navigate to="/boards" replace />} 
       />
       
-      {/* Защищенные маршруты */}
       <Route 
         path="/boards" 
         element={isAuthenticated ? <BoardSelection /> : <Navigate to="/auth" replace />} 
@@ -67,7 +61,6 @@ const AppRoutes = () => {
         element={isAuthenticated ? <EvidenceStorage /> : <Navigate to="/auth" replace />} 
       />
       
-      {/* Перенаправление */}
       <Route 
         path="/" 
         element={<Navigate to={isAuthenticated ? "/boards" : "/auth"} replace />} 
@@ -78,7 +71,7 @@ const AppRoutes = () => {
   );
 };
 
-function App() {
+const App: React.FC = () => {
   return (
     <AuthProvider>
       <Router>
@@ -88,6 +81,6 @@ function App() {
       </Router>
     </AuthProvider>
   );
-}
+};
 
 export default App;

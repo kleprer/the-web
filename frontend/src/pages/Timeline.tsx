@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { PlusOutlined } from '@ant-design/icons';
 import TimelineEvent from '../components/TimelineEvent';
@@ -6,69 +6,71 @@ import NewEventForm from '../components/NewEventForm';
 import EditEventForm from '../components/EditEventForm';
 import Navbar from '../components/Navbar';
 import { apiService } from '../services/api';
+import { TimelineEvent as TimelineEventType, Investigation } from '../types/index';
 
-const Timeline = () => {
-  const { boardId } = useParams();
-  const [events, setEvents] = useState([]);
-  const [investigation, setInvestigation] = useState(null);
-  const [showNewEventForm, setShowNewEventForm] = useState(false);
-  const [editingEvent, setEditingEvent] = useState(null);
-  const [loading, setLoading] = useState(true);
+const Timeline: React.FC = () => {
+  const { boardId } = useParams<{ boardId: string }>();
+  const [events, setEvents] = useState<TimelineEventType[]>([]);
+  const [investigation, setInvestigation] = useState<Investigation | null>(null);
+  const [showNewEventForm, setShowNewEventForm] = useState<boolean>(false);
+  const [editingEvent, setEditingEvent] = useState<TimelineEventType | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   
-  // Для горизонтального скролла
-  const [timelinePosition, setTimelinePosition] = useState(0);
-  const [isDraggingTimeline, setIsDraggingTimeline] = useState(false);
-  const timelineRef = useRef(null);
-  const dragStartRef = useRef(0);
+  const [timelinePosition, setTimelinePosition] = useState<number>(0);
+  const [isDraggingTimeline, setIsDraggingTimeline] = useState<boolean>(false);
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef<number>(0);
 
-  useEffect(() => {
-    if (boardId) {
-      loadInvestigationData();
-      loadTimelineEvents();
-    }
-  }, [boardId]);
-
-  const loadInvestigationData = async () => {
+  const loadInvestigationData = useCallback(async (): Promise<void> => {
+    if (!boardId) return;
     try {
-      const data = await apiService.getInvestigation(boardId);
+      const data = await apiService.getInvestigation(parseInt(boardId));
       setInvestigation(data);
     } catch (error) {
       console.error('Ошибка загрузки расследования:', error);
     }
-  };
+  }, [boardId]);
 
-  const loadTimelineEvents = async () => {
+  const loadTimelineEvents = useCallback(async (): Promise<void> => {
+    if (!boardId) return;
     try {
-      const eventsData = await apiService.getTimelineEvents(boardId);
+      const eventsData = await apiService.getTimelineEvents(parseInt(boardId));
       setEvents(eventsData);
     } catch (error) {
       console.error('Ошибка загрузки событий:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [boardId]);
 
-  const handleAddEvent = async (newEventData) => {
+  useEffect(() => {
+    if (boardId) {
+      loadInvestigationData();
+      loadTimelineEvents();
+    }
+  }, [boardId, loadInvestigationData, loadTimelineEvents]);
+
+  const handleAddEvent = async (newEventData: any): Promise<void> => {
     try {
       console.log('🎯 Создание события с данными:', newEventData);
-      const createdEvent = await apiService.createTimelineEvent(boardId, newEventData);
+      const createdEvent = await apiService.createTimelineEvent(parseInt(boardId!), newEventData);
       console.log(' Событие создано:', createdEvent);
       
-      setEvents(prev => [...prev, createdEvent].sort((a, b) => new Date(a.event_date) - new Date(b.event_date)));
+      setEvents(prev => [...prev, createdEvent].sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime()));
       setShowNewEventForm(false);
     } catch (error) {
       console.error(' Ошибка создания события:', error);
-      alert('Ошибка создания события: ' + error.message);
+      alert('Ошибка создания события: ' + (error as Error).message);
     }
   };
 
-  const handleUpdateEvent = async (eventId, eventData) => {
+  const handleUpdateEvent = async (eventId: number, eventData: any): Promise<void> => {
     try {
       await apiService.updateTimelineEvent(eventId, eventData);
       setEvents(prev => 
         prev.map(event => 
           event.id === eventId ? { ...event, ...eventData } : event
-        ).sort((a, b) => new Date(a.event_date) - new Date(b.event_date))
+        ).sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
       );
       setEditingEvent(null);
     } catch (error) {
@@ -76,7 +78,7 @@ const Timeline = () => {
     }
   };
 
-  const handleDeleteEvent = async (eventId) => {
+  const handleDeleteEvent = async (eventId: number): Promise<void> => {
     try {
       await apiService.deleteTimelineEvent(eventId);
       setEvents(prev => prev.filter(event => event.id !== eventId));
@@ -85,23 +87,22 @@ const Timeline = () => {
     }
   };
 
-  const handleEditEvent = (event) => {
+  const handleEditEvent = (event: TimelineEventType): void => {
     setEditingEvent(event);
   };
 
-  // Drag логика для горизонтального скролла
-  const handleTimelineMouseDown = (e) => {
+  const handleTimelineMouseDown = (e: React.MouseEvent): void => {
     setIsDraggingTimeline(true);
     dragStartRef.current = e.clientX - timelinePosition;
     e.preventDefault();
   };
 
-  const handleTimelineMouseMove = (e) => {
+  const handleTimelineMouseMove = useCallback((e: MouseEvent): void => {
     if (!isDraggingTimeline) return;
     setTimelinePosition(e.clientX - dragStartRef.current);
-  };
+  }, [isDraggingTimeline]);
 
-  const handleTimelineMouseUp = () => {
+  const handleTimelineMouseUp = (): void => {
     setIsDraggingTimeline(false);
   };
 
@@ -117,12 +118,12 @@ const Timeline = () => {
       document.removeEventListener('mouseup', handleTimelineMouseUp);
       document.body.style.cursor = 'default';
     };
-  }, [isDraggingTimeline]);
+  }, [isDraggingTimeline, handleTimelineMouseMove]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#151516] text-white">
-        <Navbar />
+        <Navbar currentBoardName={investigation?.title} />
         <div className="container mx-auto px-8 mt-6 text-center">
           Загрузка...
         </div>
@@ -132,9 +133,8 @@ const Timeline = () => {
 
   return (
     <div className="min-h-screen bg-[#151516] text-white">
-      <Navbar />
+      <Navbar currentBoardName={investigation?.title} />
 
-      {/* Кнопка добавления события */}
       <div className="container mx-auto px-8 mt-6">
         <button
           onClick={() => setShowNewEventForm(true)}
@@ -145,26 +145,23 @@ const Timeline = () => {
         </button>
       </div>
 
-      {/* Timeline Container */}
       <div 
         className="relative h-96 overflow-hidden cursor-grab active:cursor-grabbing"
         onMouseDown={handleTimelineMouseDown}
       >
-        {/* Бесконечная горизонтальная линия */}
         <div
           ref={timelineRef}
           className="absolute top-1/2 left-1/3 right-0 h-0.5 bg-white transform -translate-y-1/2"
           style={{
             transform: `translateX(${timelinePosition}px) translateY(-50%)`,
-            minWidth: Math.max(2000, events.length * 300) // Динамическая ширина
+            minWidth: Math.max(2000, events.length * 300)
           }}
         >
-          {/* События на таймлайне */}
           {events.map((event, index) => (
             <TimelineEvent
               key={event.id}
               event={event}
-              position={index * 300} // Увеличили расстояние
+              position={index * 300}
               onEdit={handleEditEvent}
               onDelete={handleDeleteEvent}
             />
@@ -172,7 +169,6 @@ const Timeline = () => {
         </div>
       </div>
 
-      {/* Форма добавления события */}
       {showNewEventForm && (
         <NewEventForm
           onAddEvent={handleAddEvent}
@@ -180,7 +176,6 @@ const Timeline = () => {
         />
       )}
 
-      {/* Форма редактирования события */}
       {editingEvent && (
         <EditEventForm
           event={editingEvent}

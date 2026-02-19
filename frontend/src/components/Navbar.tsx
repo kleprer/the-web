@@ -1,25 +1,22 @@
-// components/Navbar.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
+import { NavbarProps, UserDropdownProps, BoardDropdownProps } from '../types/props';
+import { Investigation } from '../types/index';
 
-const Navbar = ({ currentBoardName = "Текущая доска" }) => {
-  const { boardId } = useParams();
+const Navbar: React.FC<NavbarProps> = ({ currentBoardName = "Текущая доска" }) => {
+  const { boardId } = useParams<{ boardId: string }>();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [userBoards, setUserBoards] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [userBoards, setUserBoards] = useState<Investigation[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  // Загружаем доски пользователя
-  useEffect(() => {
-    if (user?.id) {
-      loadUserBoards();
-    }
-  }, [user]);
-
-  const loadUserBoards = async () => {
+  // Используем useCallback для мемоизации функции
+  const loadUserBoards = useCallback(async (): Promise<void> => {
+    if (!user?.id) return;
+    
     try {
       const boards = await apiService.getInvestigations(user.id);
       setUserBoards(boards);
@@ -28,9 +25,14 @@ const Navbar = ({ currentBoardName = "Текущая доска" }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]); // Зависимость от user.id
 
-  const handleLogout = () => {
+  // Загружаем доски пользователя
+  useEffect(() => {
+    loadUserBoards();
+  }, [loadUserBoards]); // Теперь зависимость корректная
+
+  const handleLogout = (): void => {
     logout();
     navigate('/auth');
   };
@@ -114,8 +116,8 @@ const Navbar = ({ currentBoardName = "Текущая доска" }) => {
 };
 
 // Компонент выпадающего меню пользователя
-const UserDropdown = ({ userData, onLogout }) => {
-  const [isOpen, setIsOpen] = React.useState(false);
+const UserDropdown: React.FC<UserDropdownProps> = ({ userData, onLogout }) => {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
 
   return (
     <div className="relative">
@@ -162,7 +164,7 @@ const UserDropdown = ({ userData, onLogout }) => {
             >
               <LogoutOutlined />
               <span>Выйти из аккаунта</span>
-            </button>
+        </button>
           </div>
         </div>
       )}
@@ -171,8 +173,8 @@ const UserDropdown = ({ userData, onLogout }) => {
 };
 
 // Компонент выпадающего списка досок с реальными данными
-const BoardDropdown = ({ currentBoardName, boards, currentBoardId, loading }) => {
-  const [isOpen, setIsOpen] = React.useState(false);
+const BoardDropdown: React.FC<BoardDropdownProps> = ({ currentBoardName, boards, currentBoardId, loading }) => {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
 
   return (
     <div className="relative">

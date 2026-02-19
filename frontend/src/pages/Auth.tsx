@@ -4,8 +4,8 @@ import AuthForm from '../components/AuthForm';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext'; 
 
-const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
+const Auth: React.FC = () => {
+  const [isLogin, setIsLogin] = useState<boolean>(true);
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 
@@ -15,7 +15,7 @@ const Auth = () => {
     return null;
   }
 
-  const handleSwitchMode = () => {
+  const handleSwitchMode = (): void => {
     setIsLogin(!isLogin);
   };
 

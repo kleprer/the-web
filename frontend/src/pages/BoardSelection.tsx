@@ -1,25 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusOutlined } from '@ant-design/icons';
 import Navbar from '../components/Navbar';
 import { apiService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { Investigation } from '../types/index';
 
-const BoardSelection = () => {
+const BoardSelection: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [investigations, setInvestigations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newBoardName, setNewBoardName] = useState('');
-  const [newBoardDescription, setNewBoardDescription] = useState('');
-  const [creating, setCreating] = useState(false);
+  const [investigations, setInvestigations] = useState<Investigation[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
+  const [newBoardName, setNewBoardName] = useState<string>('');
+  const [newBoardDescription, setNewBoardDescription] = useState<string>('');
+  const [creating, setCreating] = useState<boolean>(false);
 
-  useEffect(() => {
-    loadInvestigations();
-  }, [user]);
-
-  const loadInvestigations = async () => {
+  const loadInvestigations = useCallback(async (): Promise<void> => {
     if (!user?.id) return;
     
     try {
@@ -30,13 +27,17 @@ const BoardSelection = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
 
-  const handleCreateNewBoard = () => {
+  useEffect(() => {
+    loadInvestigations();
+  }, [loadInvestigations]);
+
+  const handleCreateNewBoard = (): void => {
     setShowCreateModal(true);
   };
 
-  const handleSubmitNewBoard = async () => {
+  const handleSubmitNewBoard = async (): Promise<void> => {
     if (!newBoardName.trim()) {
       alert('Введите название расследования');
       return;
@@ -52,29 +53,27 @@ const BoardSelection = () => {
         user_id: user.id
       });
 
-      // Закрываем модальное окно и переходим к новой доске
       setShowCreateModal(false);
       setNewBoardName('');
       setNewBoardDescription('');
       
-      // Переходим к новой доске
       navigate(`/board/${newInvestigation.id}`);
       
     } catch (error) {
       console.error('Ошибка создания расследования:', error);
-      alert('Ошибка при создании расследования: ' + error.message);
+      alert('Ошибка при создании расследования: ' + (error as Error).message);
     } finally {
       setCreating(false);
     }
   };
 
-  const handleCancelCreate = () => {
+  const handleCancelCreate = (): void => {
     setShowCreateModal(false);
     setNewBoardName('');
     setNewBoardDescription('');
   };
 
-  const handleSelectBoard = (boardId) => {
+  const handleSelectBoard = (boardId: number): void => {
     navigate(`/board/${boardId}`);
   };
 
@@ -83,7 +82,7 @@ const BoardSelection = () => {
   if (loading) {
     return (
       <div className="bg-[#151516] min-h-screen text-white">
-        <Navbar />
+        <Navbar currentBoardName='' />
         <div className="container mx-auto px-8 py-12 mt-[5rem] text-center">
           Загрузка...
         </div>
@@ -93,10 +92,7 @@ const BoardSelection = () => {
 
   return (
     <div className="bg-[#151516] text-white min-h-screen">
-
-      <Navbar 
-        currentBoardName=''
-      />
+      <Navbar currentBoardName='' />
 
       <div className="container mx-auto px-8 py-12 mt-[5rem]">
         <h1 className="text-3xl font-semibold text-center mb-12">
@@ -104,7 +100,6 @@ const BoardSelection = () => {
         </h1>
         
         <div className="flex gap-8 justify-center items-start flex-col md:flex-row">
-          {/* Левая карточка - Создать новую доску */}
           <div 
             onClick={handleCreateNewBoard}
             className="border-2 border-white border-opacity-50 rounded-lg bg-transparent w-80 h-96 flex flex-col items-center justify-center cursor-pointer hover:border-opacity-100 hover:bg-white hover:bg-opacity-5 transition-all duration-200"
@@ -113,7 +108,6 @@ const BoardSelection = () => {
             <span className="text-xl text-white font-semibold">Создать новое расследование</span>
           </div>
 
-          {/* Правая карточка - Список досок */}
           <div className="border-2 border-white border-opacity-50 rounded-lg bg-transparent w-80 h-96 flex flex-col">
             <div className="p-6 border-b border-white border-opacity-30">
               <h2 className="text-2xl font-semibold text-white text-center">
@@ -160,7 +154,6 @@ const BoardSelection = () => {
         </div>
       </div>
 
-      {/* Модальное окно создания новой доски */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-[#151516] border border-white border-opacity-30 rounded-lg p-6 w-96">
@@ -176,7 +169,7 @@ const BoardSelection = () => {
                 <input
                   type="text"
                   value={newBoardName}
-                  onChange={(e) => setNewBoardName(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewBoardName(e.target.value)}
                   placeholder="Введите название"
                   className="w-full bg-transparent border border-white border-opacity-30 rounded-lg px-3 py-2 text-white focus:border-blue-500 focus:outline-none"
                   autoFocus
@@ -189,9 +182,9 @@ const BoardSelection = () => {
                 </label>
                 <textarea
                   value={newBoardDescription}
-                  onChange={(e) => setNewBoardDescription(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewBoardDescription(e.target.value)}
                   placeholder="Описание расследования"
-                  rows="3"
+                  rows={3}
                   className="w-full bg-transparent border border-white border-opacity-30 rounded-lg px-3 py-2 text-white focus:border-blue-500 focus:outline-none resize-none"
                 />
               </div>

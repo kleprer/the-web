@@ -1,12 +1,12 @@
-// components/CaseSelector.jsx
 import React, { useState } from 'react';
 import { DownOutlined } from '@ant-design/icons';
+import { CaseSelectorProps } from '../types/props';
 
-const CaseSelector = ({ currentCase, onCaseChange }) => {
-  const [isOpen, setIsOpen] = useState(false);
+const CaseSelector: React.FC<CaseSelectorProps> = ({ currentCase, onCaseChange }) => {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
 
   // Mock данные кейсов
-  const cases = [
+  const cases: string[] = [
     'Расследование коррупции в мэрии',
     'Дело о незаконной застройке',
     'Расследование финансовых махинаций',
@@ -25,7 +25,7 @@ const CaseSelector = ({ currentCase, onCaseChange }) => {
 
       {isOpen && (
         <div className="absolute top-full left-0 mt-2 bg-[#2a2a2a] border border-white rounded-lg shadow-lg z-50 min-w-64">
-          {cases.map((caseItem, index) => (
+          {cases.map((caseItem: string, index: number) => (
             <button
               key={index}
               onClick={() => {

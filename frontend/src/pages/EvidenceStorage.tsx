@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { ExportOutlined, FolderAddOutlined, FileAddOutlined } from '@ant-design/icons';
 import EvidenceCard from '../components/EvidenceCard';
@@ -6,52 +6,56 @@ import ExportForm from '../components/ExportForm';
 import Navbar from '../components/Navbar';
 import { apiService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { Investigation, AppFile } from '../types/index';
 
-const EvidenceStorage = () => {
-  const { boardId } = useParams();
+const EvidenceStorage: React.FC = () => {
+  const { boardId } = useParams<{ boardId: string }>();
   const { user } = useAuth();
-  const [investigation, setInvestigation] = useState(null);
-  const [files, setFiles] = useState([]);
-  const [showExportForm, setShowExportForm] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [investigation, setInvestigation] = useState<Investigation | null>(null);
+  const [files, setFiles] = useState<AppFile[]>([]);
+  const [showExportForm, setShowExportForm] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    if (boardId) {
-      loadInvestigationData();
-      loadFiles();
-    }
-  }, [boardId]);
-
-  const loadInvestigationData = async () => {
+  const loadInvestigationData = useCallback(async (): Promise<void> => {
+    if (!boardId) return;
     try {
-      const data = await apiService.getInvestigation(boardId);
+      const data = await apiService.getInvestigation(parseInt(boardId));
       setInvestigation(data);
     } catch (error) {
       console.error('Ошибка загрузки расследования:', error);
     }
-  };
+  }, [boardId]);
 
-  const loadFiles = async () => {
+  const loadFiles = useCallback(async (): Promise<void> => {
+    if (!boardId) return;
     try {
-      const filesData = await apiService.getFiles(boardId);
+      const filesData = await apiService.getFiles(parseInt(boardId));
       setFiles(filesData);
     } catch (error) {
       console.error('Ошибка загрузки файлов:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [boardId]);
 
-  const handleAddFile = async () => {
+  useEffect(() => {
+    if (boardId) {
+      loadInvestigationData();
+      loadFiles();
+    }
+  }, [boardId, loadInvestigationData, loadFiles]);
+
+  const handleAddFile = (): void => {
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
-    input.onchange = async (e) => {
-      const files = Array.from(e.target.files);
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const files = target.files ? Array.from(target.files) : [];
       
       for (const file of files) {
         try {
-          await apiService.uploadFile(boardId, file, {
+          await apiService.uploadFile(parseInt(boardId!), file, {
             title: file.name,
             description: 'Добавлен через хранилище доказательств',
             tags: ['evidence']
@@ -61,13 +65,12 @@ const EvidenceStorage = () => {
         }
       }
       
-      // Перезагружаем файлы после загрузки
       loadFiles();
     };
     input.click();
   };
 
-  const handleDeleteFile = async (fileId) => {
+  const handleDeleteFile = async (fileId: number): Promise<void> => {
     try {
       await apiService.deleteFile(fileId);
       setFiles(prev => prev.filter(file => file.id !== fileId));
@@ -76,8 +79,7 @@ const EvidenceStorage = () => {
     }
   };
 
-  const handleCreateFolder = () => {
-    // Для папок можно создать отдельную таблицу в БД или использовать теги
+  const handleCreateFolder = (): void => {
     console.log('Создание папки - функционал можно расширить');
   };
 
@@ -149,7 +151,7 @@ const EvidenceStorage = () => {
 
       {showExportForm && (
         <ExportForm
-          files={files}
+          evidences={files}
           investigation={investigation}
           onClose={() => setShowExportForm(false)}
           onExport={(selectedFiles) => {

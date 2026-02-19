@@ -1,12 +1,28 @@
-// components/ExportForm.jsx
 import React, { useState } from 'react';
 import { CloseOutlined } from '@ant-design/icons';
 import InputField from './InputField';
 import ButtonOutline from './ButtonOutline';
+import { AppFile, Investigation } from '../types/index';
 
-const ExportForm = ({ evidences, onClose, onExport }) => {
-  const [selectedEvidences, setSelectedEvidences] = useState(
-    evidences.reduce((acc, evidence) => {
+interface ExportFormProps {
+  evidences: AppFile[];
+  investigation?: Investigation | null;
+  onClose: () => void;
+  onExport: (selectedFiles: any[]) => void;
+}
+
+interface SelectedEvidence {
+  selected: boolean;
+  description: string;
+}
+
+interface SelectedEvidencesMap {
+  [key: number]: SelectedEvidence;
+}
+
+const ExportForm: React.FC<ExportFormProps> = ({ evidences, onClose, onExport }) => {
+  const [selectedEvidences, setSelectedEvidences] = useState<SelectedEvidencesMap>(
+    evidences.reduce((acc: SelectedEvidencesMap, evidence: AppFile) => {
       acc[evidence.id] = {
         selected: false,
         description: ''
@@ -15,15 +31,16 @@ const ExportForm = ({ evidences, onClose, onExport }) => {
     }, {})
   );
 
-  const handleSelectAll = (select) => {
+  const handleSelectAll = (select: boolean): void => {
     const updated = { ...selectedEvidences };
     Object.keys(updated).forEach(id => {
-      updated[id].selected = select;
+      const numId = parseInt(id);
+      updated[numId].selected = select;
     });
     setSelectedEvidences(updated);
   };
 
-  const handleEvidenceSelect = (id, selected) => {
+  const handleEvidenceSelect = (id: number, selected: boolean): void => {
     setSelectedEvidences(prev => ({
       ...prev,
       [id]: {
@@ -33,7 +50,7 @@ const ExportForm = ({ evidences, onClose, onExport }) => {
     }));
   };
 
-  const handleDescriptionChange = (id, description) => {
+  const handleDescriptionChange = (id: number, description: string): void => {
     setSelectedEvidences(prev => ({
       ...prev,
       [id]: {
@@ -43,9 +60,9 @@ const ExportForm = ({ evidences, onClose, onExport }) => {
     }));
   };
 
-  const handleExport = () => {
+  const handleExport = (): void => {
     const exportData = Object.entries(selectedEvidences)
-      .filter(([id, data]) => data.selected)
+      .filter(([_, data]) => data.selected)
       .map(([id, data]) => {
         const evidence = evidences.find(e => e.id === parseInt(id));
         return {
@@ -62,12 +79,11 @@ const ExportForm = ({ evidences, onClose, onExport }) => {
     onExport(exportData);
   };
 
-  const selectedCount = Object.values(selectedEvidences).filter(data => data.selected).length;
+  const selectedCount: number = Object.values(selectedEvidences).filter(data => data.selected).length;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-[#2a2a2a] border border-white rounded-lg w-full max-w-4xl max-h-[80vh] flex flex-col">
-        {/* Заголовок */}
         <div className="flex justify-between items-center p-6 border-b border-white">
           <h2 className="text-xl font-semibold text-white">Экспорт в PDF</h2>
           <button
@@ -78,7 +94,6 @@ const ExportForm = ({ evidences, onClose, onExport }) => {
           </button>
         </div>
 
-        {/* Контент */}
         <div className="flex-1 overflow-auto p-6">
           <div className="mb-4">
             <div className="flex justify-between items-center mb-3">
@@ -100,7 +115,6 @@ const ExportForm = ({ evidences, onClose, onExport }) => {
               </div>
             </div>
 
-            {/* Список файлов */}
             <div className="space-y-3 max-h-96 overflow-auto">
               {evidences.map(evidence => (
                 <div key={evidence.id} className="flex items-center gap-4 p-3 bg-[#3a3a3a] rounded-lg">
@@ -113,10 +127,10 @@ const ExportForm = ({ evidences, onClose, onExport }) => {
                   
                   <div className="flex-1 min-w-0">
                     <div className="text-white font-medium truncate">
-                      {evidence.name}
+                      {evidence.name || evidence.filename || 'Без названия'}
                     </div>
                     <div className="text-gray-400 text-sm">
-                      {evidence.type.toUpperCase()} • {evidence.size}
+                      {(evidence.type || evidence.file_type || 'unknown').toUpperCase()} • {evidence.size || `${evidence.file_size} B`}
                     </div>
                   </div>
 
@@ -136,7 +150,6 @@ const ExportForm = ({ evidences, onClose, onExport }) => {
           </div>
         </div>
 
-        {/* Кнопки */}
         <div className="flex gap-3 p-6 border-t border-white">
           <ButtonOutline
             onClick={onClose}

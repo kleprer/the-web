@@ -1,4 +1,3 @@
-// frontend/src/components/EvidenceCard.jsx
 import React from 'react';
 import { 
   FileTextOutlined, 
@@ -7,9 +6,15 @@ import {
   CustomerServiceOutlined, 
   DeleteOutlined 
 } from '@ant-design/icons';
+import { AppFile } from '../types/index';
 
-const EvidenceCard = ({ file, onDelete }) => {
-  const getFileIcon = (fileType, mimeType) => {
+interface EvidenceCardProps {
+  file: AppFile;
+  onDelete: () => void;
+}
+
+const EvidenceCard: React.FC<EvidenceCardProps> = ({ file, onDelete }) => {
+  const getFileIcon = (fileType: string, mimeType: string): React.ReactElement => {
     if (fileType === 'image') return <PictureOutlined className="text-2xl" />;
     if (fileType === 'video') return <VideoCameraOutlined className="text-2xl" />;
     if (fileType === 'audio') return <CustomerServiceOutlined className="text-2xl" />;
@@ -17,7 +22,7 @@ const EvidenceCard = ({ file, onDelete }) => {
     return <FileTextOutlined className="text-2xl" />;
   };
 
-  const formatFileSize = (bytes) => {
+  const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
@@ -25,7 +30,7 @@ const EvidenceCard = ({ file, onDelete }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  const handleDownload = async () => {
+  const handleDownload = async (): Promise<void> => {
     try {
       const response = await fetch(`http://localhost:8000/files/download/${file.id}`);
       if (response.ok) {

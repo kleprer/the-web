@@ -1,7 +1,7 @@
-// components/DraggableImage.jsx
 import React, { useState } from 'react';
+import { DraggableImageProps } from '../types/props';
 
-const DraggableImage = ({ 
+const DraggableImage: React.FC<DraggableImageProps> = ({ 
   id, 
   url, 
   position, 
@@ -13,10 +13,10 @@ const DraggableImage = ({
   onSelect,
   ...props 
 }) => {
-  const [pos, setPos] = useState(position);
-  const [isDragging, setIsDragging] = useState(false);
+  const [pos, setPos] = useState<{ x: number; y: number }>(position);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
 
-  const handleMouseDown = (e) => {
+  const handleMouseDown = (e: React.MouseEvent): void => {
     if (isConnectingMode) {
       e.stopPropagation();
       return;
@@ -28,7 +28,7 @@ const DraggableImage = ({
     e.preventDefault();
   };
 
-  const handleMouseMove = (e) => {
+  const handleMouseMove = (e: React.MouseEvent): void => {
     if (!isDragging) return;
     
     setPos(prev => ({
@@ -37,17 +37,18 @@ const DraggableImage = ({
     }));
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (): void => {
     setIsDragging(false);
   };
 
-  const handleDoubleClick = () => {
+  const handleDoubleClick = (): void => {
     if (isEditMode && onEdit) {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
-      input.onchange = (e) => {
-        const file = e.target.files[0];
+      input.onchange = (e: Event) => {
+        const target = e.target as HTMLInputElement;
+        const file = target.files?.[0];
         if (file) {
           const newUrl = URL.createObjectURL(file);
           onEdit(id, newUrl);
@@ -57,7 +58,7 @@ const DraggableImage = ({
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = (): void => {
     if (onEdit && window.confirm('Удалить это изображение?')) {
       onEdit(id, { _delete: true });
     }

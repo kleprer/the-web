@@ -1,7 +1,7 @@
-// components/ButtonFilled.jsx
 import React from 'react';
+import { ButtonOutlineProps } from '../types/props';
 
-const ButtonFilled = ({ 
+const ButtonOutline: React.FC<ButtonOutlineProps> = ({ 
   children,
   onClick,
   className = "",
@@ -13,22 +13,22 @@ const ButtonFilled = ({
       type={type}
       onClick={onClick}
       className={`
-        w-min-[10em]
+        min-w-[10em]
         border-[1px]
-        border-white 
+        border-[#FF1717] 
         rounded-[20px] 
-        bg-white
+        bg-[#151516]
         border-opacity-100
-        text-[#151516] 
+        text-white 
         px-3 
         py-2
         text-[20px]
         focus:outline-none 
         focus:ring-2 
-        focus:ring-white 
+        focus:ring-[#FF1717] 
         focus:ring-opacity-50
-        hover:bg-gray-200
-        hover:border-gray-200
+        hover:bg-[#FF1717]
+        hover:bg-opacity-10
         transition-colors
         duration-200
         ${className}
@@ -40,4 +40,4 @@ const ButtonFilled = ({
   );
 };
 
-export default ButtonFilled;
+export default ButtonOutline;

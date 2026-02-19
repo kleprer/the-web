@@ -1,10 +1,14 @@
-// frontend/src/components/ProtectedRoute.jsx
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { ProtectedRouteProps } from '../types/props';
 
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+  const auth = useAuth();
+  
+  // Добавляем проверку на существование auth
+  const isAuthenticated = auth?.isAuthenticated ?? false;
+  const loading = auth?.loading ?? true;
 
   if (loading) {
     return (
@@ -18,7 +22,7 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/auth" replace />;
   }
 
-  return children;
+  return <>{children}</>;
 };
 
 export default ProtectedRoute;

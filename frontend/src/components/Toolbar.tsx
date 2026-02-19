@@ -1,4 +1,3 @@
-// components/Toolbar.jsx
 import React from 'react';
 import { 
   SelectOutlined, 
@@ -8,8 +7,9 @@ import {
   LinkOutlined, 
   PictureOutlined 
 } from '@ant-design/icons';
+import { ToolbarProps } from '../types/props';
 
-const Toolbar = ({ 
+const Toolbar: React.FC<ToolbarProps> = ({ 
   onSelectArea, 
   onMoveCanvas, 
   onAddCard, 

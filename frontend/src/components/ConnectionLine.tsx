@@ -1,6 +1,7 @@
 import React from 'react';
+import { ConnectionLineProps } from '../types/props';
 
-const ConnectionLine = ({ start, end, isTemp = false }) => {
+const ConnectionLine: React.FC<ConnectionLineProps> = ({ start, end, isTemp = false }) => {
   if (!start || !end || start.x === undefined || start.y === undefined || end.x === undefined || end.y === undefined) {
     return null;
   }

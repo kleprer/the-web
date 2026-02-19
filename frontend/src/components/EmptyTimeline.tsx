@@ -1,8 +1,8 @@
-// frontend/src/components/EmptyTimeline.jsx
 import React from 'react';
 import { PlusOutlined } from '@ant-design/icons';
+import { EmptyTimelineProps } from '../types/props';
 
-const EmptyTimeline = ({ onAddEvent }) => {
+const EmptyTimeline: React.FC<EmptyTimelineProps> = ({ onAddEvent }) => {
   return (
     <div className="text-center py-12">
       <div className="max-w-md mx-auto">

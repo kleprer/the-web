@@ -1,12 +1,12 @@
-// frontend/src/components/TimelineEvent.jsx
 import React, { useState, useRef, useEffect } from 'react';
+import { TimelineEventProps } from '../types/props';
 
-const TimelineEvent = ({ event, position, onEdit, onDelete }) => {
-  const [showContextMenu, setShowContextMenu] = useState(false);
-  const contextMenuRef = useRef(null);
-  const eventRef = useRef(null);
+const TimelineEvent: React.FC<TimelineEventProps> = ({ event, position, onEdit, onDelete }) => {
+  const [showContextMenu, setShowContextMenu] = useState<boolean>(false);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const eventRef = useRef<HTMLDivElement>(null);
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ru-RU', {
       day: 'numeric',
@@ -16,7 +16,7 @@ const TimelineEvent = ({ event, position, onEdit, onDelete }) => {
   };
 
   // Обработчик левого клика - редактирование
-  const handleClick = (e) => {
+  const handleClick = (e: React.MouseEvent): void => {
     e.preventDefault();
     e.stopPropagation();
     setShowContextMenu(false); // Закрываем меню при обычном клике
@@ -26,7 +26,7 @@ const TimelineEvent = ({ event, position, onEdit, onDelete }) => {
   };
 
   // Обработчик правого клика - контекстное меню
-  const handleContextMenu = (e) => {
+  const handleContextMenu = (e: React.MouseEvent): void => {
     e.preventDefault();
     e.stopPropagation();
     console.log('Right click detected'); // Для отладки
@@ -37,8 +37,8 @@ const TimelineEvent = ({ event, position, onEdit, onDelete }) => {
 
   // Закрытие контекстного меню при клике вне его
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target)) {
+    const handleClickOutside = (e: MouseEvent): void => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
         setShowContextMenu(false);
       }
     };
@@ -53,7 +53,7 @@ const TimelineEvent = ({ event, position, onEdit, onDelete }) => {
   }, [showContextMenu]);
 
   // Обработчик удаления
-  const handleDelete = (e) => {
+  const handleDelete = (e: React.MouseEvent): void => {
     e.stopPropagation();
     e.preventDefault();
     if (onDelete && window.confirm('Вы уверены, что хотите удалить это событие?')) {
@@ -90,7 +90,7 @@ const TimelineEvent = ({ event, position, onEdit, onDelete }) => {
           </div>
         )}
         
-        {/* Контекстное меню - ПРОСТОЙ ВАРИАНТ */}
+        {/* Контекстное меню */}
         {showContextMenu && (
           <div
             ref={contextMenuRef}

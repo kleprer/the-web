@@ -1,35 +1,33 @@
-// frontend/src/components/NewEventForm.jsx
 import React, { useState } from 'react';
-import { PaperClipOutlined } from '@ant-design/icons';
 import InputField from './InputField';
 import ButtonOutline from './ButtonOutline';
 
-const NewEventForm = ({ onAddEvent, onCancel }) => {
-  const [formData, setFormData] = useState({
+interface NewEventFormProps {
+  onAddEvent: (eventData: any) => Promise<void>;
+  onCancel: () => void;
+}
+
+interface FormData {
+  date: string;
+  title: string;
+  description: string;
+}
+
+const NewEventForm: React.FC<NewEventFormProps> = ({ onAddEvent, onCancel }) => {
+  const [formData, setFormData] = useState<FormData>({
     date: '',
     title: '',
-    description: '',
-    file: null
+    description: ''
   });
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field: keyof FormData, value: string): void => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFormData(prev => ({
-        ...prev,
-        file
-      }));
-    }
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     
     if (!formData.date || !formData.title) {
@@ -38,22 +36,20 @@ const NewEventForm = ({ onAddEvent, onCancel }) => {
     }
 
     try {
-      // Преобразуем данные для бэкенда
       const eventDataForBackend = {
         title: formData.title,
         description: formData.description || '',
-        event_date: new Date(formData.date + 'T12:00:00').toISOString() // Преобразуем дату в ISO формат
+        event_date: new Date(formData.date + 'T12:00:00').toISOString()
       };
 
       console.log('📤 Отправляемые данные:', eventDataForBackend);
       await onAddEvent(eventDataForBackend);
       
-      // Сбрасываем форму после успешного добавления
-      setFormData({ date: '', title: '', description: '', file: null });
+      setFormData({ date: '', title: '', description: '' });
       
     } catch (error) {
       console.error('❌ Ошибка при создании события:', error);
-      alert('Ошибка при создании события: ' + error.message);
+      alert('Ошибка при создании события: ' + (error as Error).message);
     }
   };
 
@@ -63,7 +59,6 @@ const NewEventForm = ({ onAddEvent, onCancel }) => {
         <h2 className="text-xl font-semibold text-white mb-4">Добавить событие</h2>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Дата */}
           <div>
             <label className="text-white text-sm mb-1 block">Дата *</label>
             <InputField
@@ -75,7 +70,6 @@ const NewEventForm = ({ onAddEvent, onCancel }) => {
             />
           </div>
 
-          {/* Название */}
           <div>
             <label className="text-white text-sm mb-1 block">Название события *</label>
             <InputField
@@ -86,7 +80,6 @@ const NewEventForm = ({ onAddEvent, onCancel }) => {
             />
           </div>
 
-          {/* Описание */}
           <div>
             <label className="text-white text-sm mb-1 block">Описание</label>
             <textarea
@@ -94,11 +87,10 @@ const NewEventForm = ({ onAddEvent, onCancel }) => {
               onChange={(e) => handleInputChange('description', e.target.value)}
               placeholder="Введите описание события"
               className="w-full border-2 border-white rounded-[20px] bg-transparent text-white placeholder-white placeholder-opacity-60 px-4 py-3 text-[20px] focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 resize-none"
-              rows="3"
+              rows={3}
             />
           </div>
 
-          {/* Кнопки */}
           <div className="flex gap-3 pt-4">
             <ButtonOutline
               type="button"
