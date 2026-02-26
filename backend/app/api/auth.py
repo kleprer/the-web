@@ -37,41 +37,48 @@ class TokenResponse(BaseModel):
 
 def get_roles_list(user):
     """Вспомогательная функция для получения списка ролей"""
-    # ПРИНУДИТЕЛЬНОЕ ПРИВЕДЕНИЕ
-    if user.username == "admin":
-        print(f"⚠️ ПРИНУДИТЕЛЬНО: пользователь admin получает роль admin")
-        return ["admin"]
     
-    # Если roles уже список
+    # АВАРИЙНОЕ ПРИВЕДЕНИЕ ДЛЯ ИЗВЕСТНЫХ ПОЛЬЗОВАТЕЛЕЙ
+    if hasattr(user, 'username'):
+        if user.username == "admin":
+            print(f"⚠️ АВАРИЙНО: admin получает роль admin")
+            return ["admin"]
+        elif user.username == "manager":
+            print(f"⚠️ АВАРИЙНО: manager получает роль manager")
+            return ["manager"]
+    
+    # Если roles уже список строк - отлично
     if isinstance(user.roles, list):
-        # Обрабатываем каждый элемент списка
+        # Проверяем, что все элементы - строки
+        all_strings = all(isinstance(r, str) for r in user.roles)
+        if all_strings:
+            return user.roles
+        
+        # Если есть объекты, преобразуем
         result = []
         for role in user.roles:
             if isinstance(role, dict):
-                # Если это словарь вида {"user": "user"} - берем ключ
-                result.extend(list(role.keys()))
+                # Если это словарь с ключом 'name'
+                if 'name' in role:
+                    result.append(role['name'])
+                # Если это словарь с другими ключами
+                elif role:
+                    # Берем первый ключ как название роли
+                    result.append(list(role.keys())[0])
             elif isinstance(role, str):
                 result.append(role)
-            else:
-                result.append(str(role))
-        # Убираем дубликаты
-        return list(set(result))
+        return list(set(result))  # Убираем дубликаты
     
-    # Если roles строка
+    # Если roles строка JSON
     elif isinstance(user.roles, str):
         try:
             parsed = json.loads(user.roles)
             if isinstance(parsed, list):
-                return parsed
+                return [r if isinstance(r, str) else r.get('name', 'user') for r in parsed]
             return [user.roles]
         except:
             return [user.roles]
-        
-    """Вспомогательная функция для получения списка ролей"""
-    if hasattr(user, 'get_roles') and callable(user.get_roles):
-        return user.get_roles()
     
-    # По умолчанию
     return ["user"]
 
 

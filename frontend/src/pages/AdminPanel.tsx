@@ -23,38 +23,22 @@ const AdminPanel: React.FC = () => {
   const [editingUser, setEditingUser] = useState<number | null>(null);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
 
-  // Проверка прав доступа
   useEffect(() => {
     if (!isManager()) {
       navigate('/boards');
     }
   }, [isManager, navigate]);
 
-  // Загрузка пользователей
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        // Временно используем мок-данные, пока не будет реализован эндпоинт
-        // TODO: заменить на реальный запрос когда будет готов бэкенд
-        const mockUsers: User[] = [
-          {
-            id: 1,
-            username: 'admin',
-            email: 'admin@example.com',
-            roles: ['admin'],
-            is_active: true,
-            created_at: new Date().toISOString()
-          },
-          {
-            id: 2,
-            username: 'user',
-            email: 'user@example.com',
-            roles: ['user'],
-            is_active: true,
-            created_at: new Date().toISOString()
-          }
-        ];
-        setUsers(mockUsers);
+        // Реальный запрос к API
+        const response = await apiService.request<any>('/auth/users/roles');
+        console.log('📥 Загружены пользователи:', response);
+        
+        // Преобразуем ответ в нужный формат
+        const usersList = Array.isArray(response) ? response : [];
+        setUsers(usersList);
       } catch (error) {
         console.error('Ошибка загрузки пользователей:', error);
       } finally {
@@ -70,12 +54,23 @@ const AdminPanel: React.FC = () => {
     setSelectedRoles([...currentRoles]);
   };
 
-  const handleSaveUser = (userId: number) => {
-    // TODO: отправить на сервер
-    setUsers(users.map(u => 
-      u.id === userId ? { ...u, roles: selectedRoles } : u
-    ));
-    setEditingUser(null);
+  const handleSaveUser = async (userId: number) => {
+    try {
+      await apiService.request('/auth/users/roles', {
+        method: 'PUT',
+        body: JSON.stringify({
+          user_id: userId,
+          roles: selectedRoles
+        })
+      });
+      
+      setUsers(users.map(u => 
+        u.id === userId ? { ...u, roles: selectedRoles } : u
+      ));
+      setEditingUser(null);
+    } catch (error) {
+      console.error('Ошибка сохранения ролей:', error);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -83,14 +78,21 @@ const AdminPanel: React.FC = () => {
     setSelectedRoles([]);
   };
 
-  const handleDeleteUser = (userId: number) => {
+  const handleDeleteUser = async (userId: number) => {
     if (userId === user?.id) {
       alert('Нельзя удалить самого себя');
       return;
     }
     
     if (window.confirm('Вы уверены, что хотите удалить этого пользователя?')) {
-      setUsers(users.filter(u => u.id !== userId));
+      try {
+        await apiService.request(`/users/${userId}`, {
+          method: 'DELETE'
+        });
+        setUsers(users.filter(u => u.id !== userId));
+      } catch (error) {
+        console.error('Ошибка удаления пользователя:', error);
+      }
     }
   };
 
@@ -146,7 +148,6 @@ const AdminPanel: React.FC = () => {
               {users.map(u => (
                 <div key={u.id} className="p-6 hover:bg-white hover:bg-opacity-5 transition-colors">
                   {editingUser === u.id ? (
-                    // Режим редактирования
                     <div className="space-y-4">
                       <div className="flex items-center gap-4">
                         <div className="flex-1">
@@ -203,7 +204,6 @@ const AdminPanel: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    // Режим просмотра
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">

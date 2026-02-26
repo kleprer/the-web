@@ -368,6 +368,9 @@ class ApiService {
       method: 'DELETE',
     });
   }
+  async getUsersWithRoles(): Promise<any> {
+  return this.request('/auth/users/roles');
+}
 }
 
 export const apiService = new ApiService();

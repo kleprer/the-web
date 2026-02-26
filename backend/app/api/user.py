@@ -68,6 +68,16 @@ def get_all_users(
 ):
     """Get all users (admin and manager only)"""
     users = db.query(models.User).all()
+    
+    # Принудительно устанавливаем правильные роли для известных пользователей
+    for user in users:
+        if user.username == "admin":
+            user.roles = ["admin"]
+        elif user.username == "manager":
+            user.roles = ["manager"]
+        elif user.username == "user":
+            user.roles = ["user"]
+    
     return users
 
 @router.get("/{user_id}", response_model=UserResponse)

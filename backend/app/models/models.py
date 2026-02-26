@@ -1,7 +1,24 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, JSON, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, JSON, Boolean, Table
 from database import Base
 import hashlib
 from datetime import datetime
+
+# Таблица для связи многие-ко-многим между пользователями и ролями
+user_roles = Table(
+    'user_roles',
+    Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id')),
+    Column('role_id', Integer, ForeignKey('roles.id'))
+)
+
+class Role(Base):
+    __tablename__ = "roles"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)  # admin, manager, user
+    description = Column(String, nullable=True)
+    permissions = Column(JSON, default=list)  # Список разрешений: ["create:investigation", "delete:any_file", ...]
+    created_at = Column(DateTime, default=datetime.now)
 
 class User(Base):
     __tablename__ = "users"
@@ -14,8 +31,8 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, nullable=True)
     
-    # Роли - храним как JSON массив строк
-    roles = Column(JSON, default=["user"])
+    # Связь с ролями
+    roles = Column(JSON, default=["user"])  # Упрощенный подход - массив строк с ролями
     
     def verify_password(self, password: str):
         # Проверяем password_hash (SHA256)
@@ -51,7 +68,7 @@ class User(Base):
                 "create:investigation", "read:any_investigation", "update:any_investigation",
                 "create:timeline", "update:timeline", "delete:own_timeline",
                 "upload:file", "download:file", "delete:own_file",
-                "manage:users"
+                "manage:users"  # менеджеры могут управлять обычными пользователями
             ],
             "user": [
                 "create:investigation", "read:own_investigation", "update:own_investigation",
