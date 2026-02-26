@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 import { NavbarProps, UserDropdownProps, BoardDropdownProps } from '../types/props';
 import { Investigation } from '../types/index';
-import { ShowForAdmin, ShowForManager, WithPermission } from './WithPermission';
 
 const Navbar: React.FC<NavbarProps> = ({ currentBoardName = "Текущая доска" }) => {
   const { boardId } = useParams<{ boardId: string }>();
@@ -14,12 +13,12 @@ const Navbar: React.FC<NavbarProps> = ({ currentBoardName = "Текущая до
   const [userBoards, setUserBoards] = useState<Investigation[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // ОТЛАДКА
   console.log('🔍 Navbar - текущий пользователь:', user);
-  console.log('🔍 Navbar - роли:', user?.roles);
-  console.log('🔍 Navbar - isAdmin:', isAdmin());
-  console.log('🔍 Navbar - isManager:', isManager());
+  console.log('🔍 Navbar - роли пользователя:', user?.roles);
+  console.log('🔍 Navbar - isAdmin():', isAdmin());
+  console.log('🔍 Navbar - isManager():', isManager());
 
-  // Используем useCallback для мемоизации функции
   const loadUserBoards = useCallback(async (): Promise<void> => {
     if (!user?.id) return;
     
@@ -33,7 +32,6 @@ const Navbar: React.FC<NavbarProps> = ({ currentBoardName = "Текущая до
     }
   }, [user?.id]);
 
-  // Загружаем доски пользователя
   useEffect(() => {
     loadUserBoards();
   }, [loadUserBoards]);
@@ -56,7 +54,6 @@ const Navbar: React.FC<NavbarProps> = ({ currentBoardName = "Текущая до
             />
           )}
           
-          {/* Название текущей доски с выпадающим списком */}
           {boardId && (
             <BoardDropdown 
               currentBoardName={currentBoardName} 
@@ -68,7 +65,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentBoardName = "Текущая до
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Админ-панель - только для админов и менеджеров */}
+          {/* Админ-панель - показываем если админ или менеджер */}
           {(isAdmin() || isManager()) && (
             <Link 
               to="/admin" 
@@ -87,9 +84,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentBoardName = "Текущая до
                 to={`/timeline/${boardId}`} 
                 className="flex flex-row items-end hover:opacity-80 transition-opacity"
               >
-                <p className="font-comorant-sc font-semibold text-2xl text-white leading-none">
-                  
-                </p>
+                <p className="font-comorant-sc font-semibold text-2xl text-white leading-none"></p>
                 <p className="font-inter font-light text-sm text-white leading-none mt-1">
                   таймлайны
                 </p>
@@ -98,9 +93,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentBoardName = "Текущая до
                 to={`/evidence/${boardId}`} 
                 className="flex flex-row items-end hover:opacity-80 transition-opacity"
               >
-                <p className="font-comorant-sc font-semibold text-2xl text-white leading-none">
-                  
-                </p>
+                <p className="font-comorant-sc font-semibold text-2xl text-white leading-none"></p>
                 <p className="font-inter font-light text-sm text-white leading-none mt-1">
                   доказательства
                 </p>
@@ -108,9 +101,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentBoardName = "Текущая до
             </>
           )}
           <Link to="/boards" className="flex flex-row items-end hover:opacity-80 transition-opacity">
-            <p className="font-comorant-sc font-semibold text-2xl text-white leading-none">
-              
-            </p>
+            <p className="font-comorant-sc font-semibold text-2xl text-white leading-none"></p>
             <p className="font-inter font-light text-sm text-white leading-none mt-1">
               доски
             </p>
@@ -146,10 +137,10 @@ const UserDropdown: React.FC<UserDropdownProps & { isAdmin: boolean; isManager: 
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const navigate = useNavigate();
 
-  console.log('👤 UserDropdown - данные пользователя:', userData);
+  console.log('👤 UserDropdown - данные:', userData);
   console.log('👤 UserDropdown - роли:', userData.roles);
-  console.log('👤 UserDropdown - isAdmin prop:', isAdmin);
-  console.log('👤 UserDropdown - isManager prop:', isManager);
+  console.log('👤 UserDropdown - isAdmin:', isAdmin);
+  console.log('👤 UserDropdown - isManager:', isManager);
 
   const getRoleBadge = () => {
     if (isAdmin) {
@@ -166,7 +157,6 @@ const UserDropdown: React.FC<UserDropdownProps & { isAdmin: boolean; isManager: 
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors cursor-pointer"
-        onMouseEnter={() => setIsOpen(true)}
       >
         <UserOutlined className="text-black text-lg text-[24px]" />
       </button>
@@ -203,7 +193,6 @@ const UserDropdown: React.FC<UserDropdownProps & { isAdmin: boolean; isManager: 
               </div>
             </div>
 
-            {/* Админские ссылки */}
             {(isAdmin || isManager) && (
               <>
                 <div className="border-t border-gray-700 my-3"></div>
@@ -236,7 +225,6 @@ const UserDropdown: React.FC<UserDropdownProps & { isAdmin: boolean; isManager: 
   );
 };
 
-// Компонент выпадающего списка досок
 const BoardDropdown: React.FC<BoardDropdownProps> = ({ currentBoardName, boards, currentBoardId, loading }) => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
@@ -258,73 +246,68 @@ const BoardDropdown: React.FC<BoardDropdownProps> = ({ currentBoardName, boards,
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-64 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
-          <div className="p-2">
-            <div className="text-xs text-gray-400 px-3 py-2 border-b border-gray-700">
-              Ваши расследования
-            </div>
-            
-            {loading ? (
-              <div className="px-3 py-4 text-center">
-                <div className="text-gray-400 text-sm">Загрузка...</div>
+        <>
+          <div className="absolute top-full left-0 mt-2 w-64 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
+            <div className="p-2">
+              <div className="text-xs text-gray-400 px-3 py-2 border-b border-gray-700">
+                Ваши расследования
               </div>
-            ) : boards.length === 0 ? (
-              <div className="px-3 py-4 text-center">
-                <div className="text-gray-400 text-sm mb-2">Нет созданных расследований</div>
-                <Link
-                  to="/boards"
-                  className="text-blue-400 hover:text-blue-300 text-xs"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Создать первое расследование
-                </Link>
-              </div>
-            ) : (
-              <>
-                {boards.map((board) => (
+              
+              {loading ? (
+                <div className="px-3 py-4 text-center">
+                  <div className="text-gray-400 text-sm">Загрузка...</div>
+                </div>
+              ) : boards.length === 0 ? (
+                <div className="px-3 py-4 text-center">
+                  <div className="text-gray-400 text-sm mb-2">Нет созданных расследований</div>
                   <Link
-                    key={board.id}
-                    to={`/board/${board.id}`}
-                    className={`block px-3 py-2 rounded-md hover:bg-gray-700 transition-colors ${
-                      board.id.toString() === currentBoardId.toString() ? 'bg-blue-600 hover:bg-blue-700' : ''
-                    }`}
+                    to="/boards"
+                    className="text-blue-400 hover:text-blue-300 text-xs"
                     onClick={() => setIsOpen(false)}
                   >
-                    <div className="font-medium text-white text-sm truncate">
-                      {board.title}
-                    </div>
-                    {board.description && (
-                      <div className="text-xs text-gray-400 mt-1 truncate">
-                        {board.description}
-                      </div>
-                    )}
-                    <div className="text-xs text-gray-500 mt-1">
-                      {new Date(board.created_at).toLocaleDateString('ru-RU')}
-                    </div>
+                    Создать первое расследование
                   </Link>
-                ))}
-              </>
-            )}
+                </div>
+              ) : (
+                <>
+                  {boards.map((board) => (
+                    <Link
+                      key={board.id}
+                      to={`/board/${board.id}`}
+                      className={`block px-3 py-2 rounded-md hover:bg-gray-700 transition-colors ${
+                        board.id.toString() === currentBoardId.toString() ? 'bg-blue-600 hover:bg-blue-700' : ''
+                      }`}
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <div className="font-medium text-white text-sm truncate">
+                        {board.title}
+                      </div>
+                      {board.description && (
+                        <div className="text-xs text-gray-400 mt-1 truncate">
+                          {board.description}
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-500 mt-1">
+                        {new Date(board.created_at).toLocaleDateString('ru-RU')}
+                      </div>
+                    </Link>
+                  ))}
+                </>
+              )}
 
-            <div className="border-t border-gray-700 mt-2 pt-2">
-              <Link
-                to="/boards"
-                className="block px-3 py-2 text-blue-400 hover:text-blue-300 text-sm font-medium text-center"
-                onClick={() => setIsOpen(false)}
-              >
-                Управление всеми досками →
-              </Link>
+              <div className="border-t border-gray-700 mt-2 pt-2">
+                <Link
+                  to="/boards"
+                  className="block px-3 py-2 text-blue-400 hover:text-blue-300 text-sm font-medium text-center"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Управление всеми досками →
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Overlay для закрытия при клике вне */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 z-40" 
-          onClick={() => setIsOpen(false)}
-        />
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+        </>
       )}
     </div>
   );

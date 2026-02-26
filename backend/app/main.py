@@ -11,6 +11,7 @@ from api.note import router as notes_router
 from api.search import router as search_router
 from api.user import router as user_router
 from api.board import router as board_router
+from api.token import router as token_router  # Импортируем новый роутер
 from datetime import datetime 
 
 # Создаем таблицы
@@ -33,6 +34,17 @@ def init_db():
         )
         db.add(admin)
         
+        # Создаем менеджера
+        manager = models.User(
+            username="manager",
+            email="manager@example.com",
+            password_hash=models.User.get_password_hash("manager123"),
+            is_active=True,
+            created_at=datetime.now(),
+            roles=["manager"]
+        )
+        db.add(manager)
+        
         # Создаем обычного пользователя
         user = models.User(
             username="user",
@@ -45,7 +57,10 @@ def init_db():
         db.add(user)
         
         db.commit()
-        print("✅ Созданы начальные пользователи: admin/admin123, user/user123")
+        print("✅ Созданы начальные пользователи:")
+        print("   admin/admin123 - Администратор")
+        print("   manager/manager123 - Менеджер")
+        print("   user/user123 - Обычный пользователь")
 
 app = FastAPI(
     title="Journalist Assistant API",
@@ -69,7 +84,9 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
+# Подключаем все роутеры
 app.include_router(auth_router)
+app.include_router(token_router)  # Важно: этот роутер должен быть перед остальными
 app.include_router(investigations_router)
 app.include_router(timelines_router)
 app.include_router(files_router)

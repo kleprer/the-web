@@ -8,9 +8,10 @@ from utils.jwt import verify_token
 from schemas.token import TokenData
 from typing import Optional, List
 
+# Исправляем tokenUrl на правильный путь
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/auth/token",
-    auto_error=False  # Разрешаем неавторизованные запросы для обратной совместимости
+    tokenUrl="/auth/token",  # Важно: должен совпадать с эндпоинтом выше
+    auto_error=False
 )
 
 async def get_current_user(
@@ -24,7 +25,6 @@ async def get_current_user(
     )
     
     if not token:
-        # Для обратной совместимости - если нет токена, проверяем сессию или другие методы
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Требуется авторизация"
@@ -38,8 +38,7 @@ async def get_current_user(
     if username is None:
         raise credentials_exception
     
-    token_data = TokenData(username=username)
-    user = db.query(models.User).filter(models.User.username == token_data.username).first()
+    user = db.query(models.User).filter(models.User.username == username).first()
     
     if user is None:
         raise credentials_exception

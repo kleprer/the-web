@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import models
 from schemas.user import UserResponse, UserUpdate
-from dependencies.auth import get_current_user, require_permission, require_resource_owner
+from dependencies.auth import get_current_user, require_permission
 from typing import List
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -24,7 +24,6 @@ def update_my_profile(
 ):
     """Update current user profile"""
     if user_update.username:
-        # Check if username is already taken by another user
         existing_user = db.query(models.User).filter(
             models.User.username == user_update.username,
             models.User.id != current_user.id
@@ -36,7 +35,6 @@ def update_my_profile(
         current_user.username = user_update.username
     
     if user_update.email:
-        # Check if email is already taken by another user
         existing_user = db.query(models.User).filter(
             models.User.email == user_update.email,
             models.User.id != current_user.id
@@ -58,16 +56,11 @@ def delete_my_account(
     db: Session = Depends(get_db)
 ):
     """Delete current user account"""
-    # Archive user's investigations instead of deleting them?
-    # Or actually delete everything?
-    
-    # For now, just mark as inactive
     current_user.is_active = False
     db.commit()
     
     return {"message": "Account deactivated successfully"}
 
-# Админские эндпоинты
 @router.get("/", response_model=List[UserResponse])
 def get_all_users(
     current_user: models.User = Depends(require_permission("manage:users")),

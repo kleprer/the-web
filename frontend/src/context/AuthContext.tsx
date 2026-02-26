@@ -9,7 +9,7 @@ interface AuthContextType {
   logout: () => void;
   updateTokens: (newTokens: { access_token: string; refresh_token: string }) => void;
   isAuthenticated: boolean;
-  // Методы для RBAC
+  // Методы для проверки прав
   hasPermission: (permission: string) => boolean;
   hasAnyRole: (roles: string[]) => boolean;
   hasAllRoles: (roles: string[]) => boolean;
@@ -49,6 +49,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         try {
           // Пробуем получить актуальные данные с сервера
           const userInfo = await apiService.getCurrentUser();
+          console.log('📥 Загружена информация о пользователе:', userInfo);
+          
           if (userInfo.authenticated && userInfo.user) {
             const userWithRoles = {
               id: userInfo.user.id,
@@ -56,20 +58,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               email: userInfo.user.email,
               roles: userInfo.user.roles || ['user']
             };
+            console.log('👤 Установлен пользователь:', userWithRoles);
             setUser(userWithRoles);
             localStorage.setItem('user', JSON.stringify(userWithRoles));
           } else {
-            // Если не получилось, пробуем из localStorage
-            const storedUser = localStorage.getItem('user');
-            if (storedUser) {
-              try {
-                const parsedUser = JSON.parse(storedUser);
-                setUser(parsedUser);
-              } catch (e) {
-                console.error('Ошибка парсинга пользователя:', e);
-                localStorage.removeItem('user');
-              }
-            }
+            console.log('❌ Не удалось загрузить пользователя');
+            // Очищаем токены если они не валидны
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
           }
         } catch (error) {
           console.error('Ошибка загрузки пользователя:', error);
@@ -78,9 +75,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (storedUser) {
             try {
               const parsedUser = JSON.parse(storedUser);
+              console.log('👤 Загружен из localStorage:', parsedUser);
               setUser(parsedUser);
             } catch (e) {
               console.error('Ошибка парсинга пользователя:', e);
+              localStorage.removeItem('user');
             }
           }
         }
@@ -99,20 +98,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       id: userData.id || userData.user_id || 0,
       username: userData.username,
       email: userData.email,
-      roles: userData.roles || ['user'] // Берем роли из ответа или ставим user по умолчанию
+      roles: userData.roles || ['user'] // Берем роли из ответа
     };
     
     console.log('👤 Сохраняем пользователя с ролями:', userWithRoles);
     
+    // Устанавливаем в state
     setUser(userWithRoles);
+    
+    // Сохраняем в localStorage
     localStorage.setItem('user', JSON.stringify(userWithRoles));
     
+    // Сохраняем токены
     if (userData.access_token && userData.refresh_token) {
+      localStorage.setItem('access_token', userData.access_token);
+      localStorage.setItem('refresh_token', userData.refresh_token);
       apiService.setTokens(userData.access_token, userData.refresh_token);
     }
+    
+    console.log('💾 Данные сохранены в localStorage');
   };
 
   const logout = (): void => {
+    console.log('🚪 Выход из аккаунта');
     setUser(null);
     apiService.clearTokens();
     localStorage.removeItem('user');
@@ -121,6 +129,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const updateTokens = (newTokens: { access_token: string; refresh_token: string }): void => {
+    localStorage.setItem('access_token', newTokens.access_token);
+    localStorage.setItem('refresh_token', newTokens.refresh_token);
     apiService.setTokens(newTokens.access_token, newTokens.refresh_token);
   };
 

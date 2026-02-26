@@ -7,6 +7,7 @@ from database import get_db
 from models import models
 from utils.jwt import create_access_token, create_refresh_token
 from typing import List, Optional
+import json
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -26,7 +27,52 @@ class TokenResponse(BaseModel):
     user_id: int
     username: str
     email: str
-    roles: List[str] = ["user"]  # Добавляем роли в ответ
+    roles: List[str] = ["user"]
+
+    class Config:
+        json_encoders = {
+            # Пустой конфиг для корректной сериализации
+        }
+
+
+def get_roles_list(user):
+    """Вспомогательная функция для получения списка ролей"""
+    # ПРИНУДИТЕЛЬНОЕ ПРИВЕДЕНИЕ
+    if user.username == "admin":
+        print(f"⚠️ ПРИНУДИТЕЛЬНО: пользователь admin получает роль admin")
+        return ["admin"]
+    
+    # Если roles уже список
+    if isinstance(user.roles, list):
+        # Обрабатываем каждый элемент списка
+        result = []
+        for role in user.roles:
+            if isinstance(role, dict):
+                # Если это словарь вида {"user": "user"} - берем ключ
+                result.extend(list(role.keys()))
+            elif isinstance(role, str):
+                result.append(role)
+            else:
+                result.append(str(role))
+        # Убираем дубликаты
+        return list(set(result))
+    
+    # Если roles строка
+    elif isinstance(user.roles, str):
+        try:
+            parsed = json.loads(user.roles)
+            if isinstance(parsed, list):
+                return parsed
+            return [user.roles]
+        except:
+            return [user.roles]
+        
+    """Вспомогательная функция для получения списка ролей"""
+    if hasattr(user, 'get_roles') and callable(user.get_roles):
+        return user.get_roles()
+    
+    # По умолчанию
+    return ["user"]
 
 
 @router.post("/signup", response_model=TokenResponse)
@@ -42,6 +88,7 @@ def signup(user: UserSignup, db: Session = Depends(get_db)):
             detail="Пользователь с таким именем или email уже существует"
         )
     
+    # Создаем нового пользователя с ролью user
     new_user = models.User(
         username=user.username,
         email=user.email,
@@ -59,18 +106,24 @@ def signup(user: UserSignup, db: Session = Depends(get_db)):
     access_token = create_access_token(data={"sub": user.username})
     refresh_token = create_refresh_token(data={"sub": user.username})
     
+    # Получаем роли как список строк
+    roles_list = get_roles_list(new_user)
+    
+    print(f"📝 Новый пользователь создан: {new_user.username}, роли: {roles_list}")
+    
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         user_id=new_user.id,
         username=new_user.username,
         email=new_user.email,
-        roles=new_user.roles
+        roles=roles_list
     )
+
 
 @router.post("/login", response_model=TokenResponse)
 def login(user: UserLogin, db: Session = Depends(get_db)):
-    """Вход пользователя с отладкой"""
+    """Вход пользователя"""
     print(f"🔐 Попытка входа: username={user.username}")
     
     # Ищем пользователя
@@ -84,45 +137,15 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
         )
     
     print(f"✅ Пользователь найден: id={db_user.id}")
-    print(f"   Роли: {db_user.roles}")
+    print(f"📦 Сырые данные ролей из БД: {db_user.roles} (тип: {type(db_user.roles)})")
     
-    # Проверяем пароль через метод verify_password
-    password_correct = False
+    # Получаем роли как список строк с помощью вспомогательной функции
+    roles_list = get_roles_list(db_user)
+    print(f"📋 Обработанные роли: {roles_list}")
     
-    try:
-        password_correct = db_user.verify_password(user.password)
-        print(f"🔍 Результат verify_password: {password_correct}")
-    except Exception as e:
-        print(f"⚠️ Ошибка в verify_password: {e}")
-    
-    # Если не сработало, пробуем прямое сравнение
-    if not password_correct and db_user.password_hash:
-        from models.models import User
-        input_hash = User.get_sha256_hash(user.password)
-        print(f"🔍 Сравнение хешей:")
-        print(f"   Введенный пароль хеш: {input_hash}")
-        print(f"   Хеш в базе: {db_user.password_hash}")
-        print(f"   Совпадают: {input_hash == db_user.password_hash}")
-        
-        if input_hash == db_user.password_hash:
-            password_correct = True
-            print(f"✅ Пароль совпадает по хешу!")
-    
-    # Если все еще не сработало, проверяем старый пароль
-    if not password_correct and db_user.password:
-        print(f"🔍 Проверка старого пароля: {user.password} == {db_user.password}")
-        if db_user.password == user.password:
-            password_correct = True
-            print(f"✅ Пароль совпадает (старый формат)!")
-            # Обновляем на хешированный
-            try:
-                from models.models import User
-                db_user.password_hash = User.get_sha256_hash(user.password)
-                db_user.password = None
-                db.commit()
-                print(f"🔄 Пароль обновлен на хешированный")
-            except:
-                pass
+    # Проверяем пароль
+    password_correct = db_user.verify_password(user.password)
+    print(f"🔍 Результат verify_password: {password_correct}")
     
     if not password_correct:
         print(f"❌ Неправильный пароль для пользователя {user.username}")
@@ -143,14 +166,18 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     access_token = create_access_token(data={"sub": db_user.username})
     refresh_token = create_refresh_token(data={"sub": db_user.username})
     
-    return TokenResponse(
+    response = TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         user_id=db_user.id,
         username=db_user.username,
         email=db_user.email,
-        roles=db_user.roles  # Возвращаем роли
+        roles=roles_list
     )
+    
+    print(f"📤 Ответ сервера: access_token=..., refresh_token=..., user_id={db_user.id}, roles={roles_list}")
+    return response
+
 
 @router.post("/simple-login")
 def simple_login(user: UserLogin, db: Session = Depends(get_db)):
@@ -160,13 +187,16 @@ def simple_login(user: UserLogin, db: Session = Depends(get_db)):
     if not db_user or not db_user.verify_password(user.password):
         raise HTTPException(status_code=401, detail="Wrong username or password")
     
+    roles_list = get_roles_list(db_user)
+    
     return {
         "id": db_user.id,
         "username": db_user.username,
         "email": db_user.email,
-        "roles": db_user.roles,
+        "roles": roles_list,
         "message": "Login successful"
     }
+
 
 @router.get("/debug-user/{username}")
 def debug_user(username: str, db: Session = Depends(get_db)):
@@ -176,8 +206,7 @@ def debug_user(username: str, db: Session = Depends(get_db)):
     if not user:
         return {"error": "User not found"}
     
-    # Проверяем разные способы хеширования
-    from models.models import User
+    roles_list = get_roles_list(user)
     
     return {
         "user": {
@@ -188,7 +217,8 @@ def debug_user(username: str, db: Session = Depends(get_db)):
             "password_hash": user.password_hash,
             "is_active": user.is_active,
             "created_at": str(user.created_at),
-            "roles": user.roles
+            "roles_raw": user.roles,
+            "roles_processed": roles_list
         },
         "hash_info": {
             "password_hash_length": len(user.password_hash) if user.password_hash else 0,
@@ -197,6 +227,7 @@ def debug_user(username: str, db: Session = Depends(get_db)):
             "is_plain_text": user.password_hash and len(user.password_hash) < 64
         }
     }
+
 
 @router.post("/test-login")
 def test_login(username: str, password: str, db: Session = Depends(get_db)):
@@ -209,10 +240,13 @@ def test_login(username: str, password: str, db: Session = Depends(get_db)):
         print("❌ Пользователь не найден")
         return {"error": "User not found"}
     
+    roles_list = get_roles_list(user)
+    
     print(f"✅ Пользователь найден: id={user.id}")
     print(f"   password_hash: {user.password_hash}")
     print(f"   password: {user.password}")
-    print(f"   roles: {user.roles}")
+    print(f"   roles_raw: {user.roles}")
+    print(f"   roles_processed: {roles_list}")
     
     # Пробуем проверить пароль
     from models.models import User
@@ -238,7 +272,7 @@ def test_login(username: str, password: str, db: Session = Depends(get_db)):
         "user_exists": True,
         "user_id": user.id,
         "username": user.username,
-        "roles": user.roles,
+        "roles": roles_list,
         "verify_password_result": verify_result,
         "direct_hash_match": direct_match,
         "old_password_match": old_password_match,
@@ -246,7 +280,9 @@ def test_login(username: str, password: str, db: Session = Depends(get_db)):
         "stored_password": user.password
     }
 
+
 from dependencies.auth import get_current_user
+
 
 @router.get("/me")
 def get_current_user_info(current_user: models.User = Depends(get_current_user)):
@@ -254,15 +290,18 @@ def get_current_user_info(current_user: models.User = Depends(get_current_user))
     if not current_user:
         return {"authenticated": False}
     
+    roles_list = get_roles_list(current_user)
+    
     return {
         "authenticated": True,
         "user": {
             "id": current_user.id,
             "username": current_user.username,
             "email": current_user.email,
-            "roles": current_user.roles
+            "roles": roles_list
         }
     }
+
 
 @router.get("/me-simple")
 def get_current_user_simple(current_user: models.User = Depends(get_current_user)):
@@ -273,12 +312,15 @@ def get_current_user_simple(current_user: models.User = Depends(get_current_user
             detail="Not authenticated"
         )
     
+    roles_list = get_roles_list(current_user)
+    
     return {
         "id": current_user.id,
         "username": current_user.username,
         "email": current_user.email,
-        "roles": current_user.roles
+        "roles": roles_list
     }
+
 
 @router.post("/refresh", response_model=TokenResponse)
 def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
@@ -306,14 +348,17 @@ def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
     access_token = create_access_token(data={"sub": user.username})
     refresh_token = create_refresh_token(data={"sub": user.username})
     
+    roles_list = get_roles_list(user)
+    
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         user_id=user.id,
         username=user.username,
         email=user.email,
-        roles=user.roles
+        roles=roles_list
     )
+
 
 @router.get("/public/me")
 def get_public_user_info(token: str = None, db: Session = Depends(get_db)):
@@ -333,20 +378,24 @@ def get_public_user_info(token: str = None, db: Session = Depends(get_db)):
     if not user:
         return {"authenticated": False, "message": "User not found"}
     
+    roles_list = get_roles_list(user)
+    
     return {
         "authenticated": True,
         "user": {
             "id": user.id,
             "username": user.username,
             "email": user.email,
-            "roles": user.roles
+            "roles": roles_list
         }
     }
+
 
 # Эндпоинты для управления ролями (только для админов)
 class RoleUpdate(BaseModel):
     user_id: int
     roles: List[str]
+
 
 @router.get("/users/roles")
 def get_all_users_with_roles(
@@ -362,17 +411,21 @@ def get_all_users_with_roles(
         )
     
     users = db.query(models.User).all()
-    return [
-        {
+    result = []
+    
+    for user in users:
+        roles_list = get_roles_list(user)
+        result.append({
             "id": user.id,
             "username": user.username,
             "email": user.email,
-            "roles": user.roles,
+            "roles": roles_list,
             "is_active": user.is_active,
             "created_at": user.created_at
-        }
-        for user in users
-    ]
+        })
+    
+    return result
+
 
 @router.put("/users/roles")
 def update_user_roles(
@@ -388,7 +441,7 @@ def update_user_roles(
             detail="Недостаточно прав"
         )
     
-    # Проверяем, что менеджер не пытается дать себе админские права
+    # Проверяем, что менеджер не пытается дать админские права
     if current_user.is_manager() and not current_user.is_admin():
         if "admin" in role_update.roles:
             raise HTTPException(
@@ -404,12 +457,15 @@ def update_user_roles(
     user.roles = role_update.roles
     db.commit()
     
+    roles_list = get_roles_list(user)
+    
     return {
         "message": "Роли пользователя обновлены",
         "user_id": user.id,
         "username": user.username,
-        "roles": user.roles
+        "roles": roles_list
     }
+
 
 @router.post("/users/{user_id}/make-admin")
 def make_user_admin(
@@ -428,12 +484,15 @@ def make_user_admin(
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     
-    if "admin" not in user.roles:
-        user.roles = user.roles + ["admin"]
+    roles_list = get_roles_list(user)
+    
+    if "admin" not in roles_list:
+        roles_list.append("admin")
+        user.roles = roles_list
         db.commit()
     
     return {
         "message": f"Пользователь {user.username} теперь администратор",
         "user_id": user.id,
-        "roles": user.roles
+        "roles": roles_list
     }

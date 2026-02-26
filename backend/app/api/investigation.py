@@ -53,15 +53,15 @@ def get_investigation(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    investigation = db.query(models.Investigation).filter(
+    investigation_item = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id,
         models.Investigation.user_id == current_user.id
     ).first()
     
-    if not investigation:
+    if not investigation_item:
         raise HTTPException(status_code=404, detail="Investigation not found")
     
-    return investigation
+    return investigation_item
 
 @router.put("/{investigation_id}", response_model=investigation.InvestigationResponse)
 def update_investigation(
@@ -95,15 +95,15 @@ def delete_investigation(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    investigation = db.query(models.Investigation).filter(
+    investigation_item = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id,
         models.Investigation.user_id == current_user.id
     ).first()
     
-    if not investigation:
+    if not investigation_item:
         raise HTTPException(status_code=404, detail="Investigation not found")
     
-    db.delete(investigation)
+    db.delete(investigation_item)
     db.commit()
     
     return {"message": "Investigation deleted successfully"}
@@ -114,15 +114,15 @@ def archive_investigation(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    investigation = db.query(models.Investigation).filter(
+    investigation_item = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id,
         models.Investigation.user_id == current_user.id
     ).first()
     
-    if not investigation:
+    if not investigation_item:
         raise HTTPException(status_code=404, detail="Investigation not found")
     
-    investigation.is_archived = True
+    investigation_item.is_archived = True
     db.commit()
     
     return {"message": "Investigation archived successfully"}
@@ -133,15 +133,15 @@ def restore_investigation(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    investigation = db.query(models.Investigation).filter(
+    investigation_item = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id,
         models.Investigation.user_id == current_user.id
     ).first()
     
-    if not investigation:
+    if not investigation_item:
         raise HTTPException(status_code=404, detail="Investigation not found")
     
-    investigation.is_archived = False
+    investigation_item.is_archived = False
     db.commit()
     
     return {"message": "Investigation restored successfully"}
