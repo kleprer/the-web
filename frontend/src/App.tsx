@@ -6,11 +6,15 @@ import BoardSelection from './pages/BoardSelection';
 import InvestigationBoard from './pages/InvestigationBoard';
 import Timeline from './pages/Timeline';
 import EvidenceStorage from './pages/EvidenceStorage';
+import AdminPanel from './pages/AdminPanel';
+import { WithRole } from './components/WithPermission';
 import './App.css';
 
+// Компонент для перенаправления
 const AppRoutes: React.FC = () => {
   const { isAuthenticated, loading } = useAuth();
   
+  // Проверяем токены при загрузке
   useEffect(() => {
     const checkTokens = (): void => {
       const accessToken = localStorage.getItem('access_token');
@@ -36,11 +40,13 @@ const AppRoutes: React.FC = () => {
   
   return (
     <Routes>
+      {/* Авторизация */}
       <Route 
         path="/auth" 
         element={!isAuthenticated ? <Auth /> : <Navigate to="/boards" replace />} 
       />
       
+      {/* Защищенные маршруты */}
       <Route 
         path="/boards" 
         element={isAuthenticated ? <BoardSelection /> : <Navigate to="/auth" replace />} 
@@ -61,6 +67,34 @@ const AppRoutes: React.FC = () => {
         element={isAuthenticated ? <EvidenceStorage /> : <Navigate to="/auth" replace />} 
       />
       
+      {/* Админские маршруты */}
+      <Route 
+        path="/admin" 
+        element={
+          isAuthenticated ? (
+            <WithRole roles={['admin', 'manager']}>
+              <AdminPanel />
+            </WithRole>
+          ) : (
+            <Navigate to="/auth" replace />
+          )
+        } 
+      />
+      
+      <Route 
+        path="/admin/users" 
+        element={
+          isAuthenticated ? (
+            <WithRole roles={['admin', 'manager']}>
+              <AdminPanel />
+            </WithRole>
+          ) : (
+            <Navigate to="/auth" replace />
+          )
+        } 
+      />
+      
+      {/* Перенаправление */}
       <Route 
         path="/" 
         element={<Navigate to={isAuthenticated ? "/boards" : "/auth"} replace />} 

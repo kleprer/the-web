@@ -14,9 +14,9 @@ class ApiService {
     this.accessToken = localStorage.getItem('access_token');
     this.refreshToken = localStorage.getItem('refresh_token');
     
-    console.log(' ApiService инициализирован:');
-    console.log(' Access Token:', this.accessToken ? 'есть' : 'нет');
-    console.log(' Refresh Token:', this.refreshToken ? 'есть' : 'нет');
+    console.log('📡 ApiService инициализирован:');
+    console.log('   Access Token:', this.accessToken ? 'есть' : 'нет');
+    console.log('   Refresh Token:', this.refreshToken ? 'есть' : 'нет');
   }
 
   setTokens(accessToken: string, refreshToken: string): void {
@@ -39,12 +39,13 @@ class ApiService {
     this.refreshToken = null;
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
     console.log('🗑️ Токены удалены');
   }
 
   async refreshAccessToken(refreshToken: string): Promise<TokenRefreshResponse> {
     try {
-      console.log(' Попытка обновить access token...');
+      console.log('🔄 Попытка обновить access token...');
       
       if (!refreshToken) {
         throw new Error('No refresh token');
@@ -68,12 +69,12 @@ class ApiService {
       
       this.setTokens(data.access_token, data.refresh_token);
       
-      console.log(' Токен обновлен');
+      console.log('✅ Токен обновлен');
       
       return data;
       
     } catch (error) {
-      console.error(' Ошибка обновления токена:', error);
+      console.error('❌ Ошибка обновления токена:', error);
       this.clearTokens();
       throw error;
     }
@@ -91,8 +92,8 @@ class ApiService {
       headers['Authorization'] = `Bearer ${this.accessToken}`;
     }
 
-    console.log(` ${options.method || 'GET'} ${endpoint}`);
-    console.log('   Headers:', { ...headers, Authorization: 'Bearer ***' });
+    console.log(`📤 ${options.method || 'GET'} ${endpoint}`);
+    console.log('   Headers:', { ...headers, Authorization: this.accessToken ? 'Bearer ***' : 'none' });
 
     let config: RequestInit = {
       ...options,
@@ -103,7 +104,7 @@ class ApiService {
       let response = await fetch(url, config);
 
       if (response.status === 401 && this.refreshToken) {
-        console.log(' Токен истек, пробуем обновить...');
+        console.log('🔄 Токен истек, пробуем обновить...');
         
         try {
           const newTokens = await this.refreshAccessToken(this.refreshToken);
@@ -114,37 +115,37 @@ class ApiService {
           response = await fetch(url, config);
           
         } catch (refreshError) {
-          console.error(' Не удалось обновить токен:', refreshError);
+          console.error('❌ Не удалось обновить токен:', refreshError);
           this.clearTokens();
           return Promise.reject(new Error('Session expired'));
         }
       }
 
       if (!response.ok) {
-        console.error(` HTTP error ${response.status} for ${endpoint}`);
+        console.error(`❌ HTTP error ${response.status} for ${endpoint}`);
         return Promise.reject(new Error(`HTTP error ${response.status}`));
       }
 
       const data = await response.json() as T;
-      console.log(` Response from ${endpoint}:`, data);
+      console.log(`📥 Response from ${endpoint}:`, data);
       return data;
 
     } catch (error) {
-      console.error(` Request error for ${endpoint}:`, error);
+      console.error(`❌ Request error for ${endpoint}:`, error);
       throw error;
     }
   }
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
-      console.log(' Попытка входа:', credentials);
+      console.log('🔐 Попытка входа:', { username: credentials.username });
       
       const response = await this.request<AuthResponse>('/auth/login', {
         method: 'POST',
         body: JSON.stringify(credentials),
       });
 
-      console.log(' Успешный вход:', response);
+      console.log('✅ Успешный вход. Ответ сервера:', response);
       
       if (response.access_token) {
         this.setTokens(response.access_token, response.refresh_token);
@@ -154,21 +155,21 @@ class ApiService {
       }
       
     } catch (error) {
-      console.error(' Ошибка входа:', error);
+      console.error('❌ Ошибка входа:', error);
       throw error;
     }
   }
 
   async signup(userData: SignupCredentials): Promise<AuthResponse> {
     try {
-      console.log(' Регистрация:', userData);
+      console.log('📝 Регистрация:', { username: userData.username, email: userData.email });
       
       const response = await this.request<AuthResponse>('/auth/signup', {
         method: 'POST',
         body: JSON.stringify(userData),
       });
 
-      console.log(' Успешная регистрация:', response);
+      console.log('✅ Успешная регистрация. Ответ сервера:', response);
       
       if (response.access_token) {
         this.setTokens(response.access_token, response.refresh_token);
@@ -178,33 +179,21 @@ class ApiService {
       }
       
     } catch (error) {
-      console.error(' Ошибка регистрации:', error);
+      console.error('❌ Ошибка регистрации:', error);
       throw error;
     }
   }
 
   async getCurrentUser(): Promise<UserInfoResponse> {
     try {
-      console.log(' Запрос информации о пользователе...');
+      console.log('👤 Запрос информации о пользователе...');
       
       const response = await this.request<UserInfoResponse>('/auth/me');
-      console.log(' Информация о пользователе:', response);
+      console.log('👤 Информация о пользователе:', response);
       return response;
       
     } catch (error) {
-      console.log(' /auth/me не работает, пробуем /auth/public/me');
-      
-      try {
-        const response = await fetch(`${this.baseURL}/auth/public/me?token=${this.accessToken}`);
-        if (response.ok) {
-          const data = await response.json() as UserInfoResponse;
-          console.log(' Публичная информация о пользователе:', data);
-          return data;
-        }
-      } catch (e) {
-        console.error(' Оба endpoints не работают:', e);
-      }
-      
+      console.error('❌ Ошибка получения информации о пользователе:', error);
       return { authenticated: false };
     }
   }

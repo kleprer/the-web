@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any, Dict
 from datetime import datetime
 
 class InvestigationBase(BaseModel):
@@ -17,8 +17,9 @@ class InvestigationResponse(InvestigationBase):
     id: int
     user_id: int
     created_at: datetime
-    updated_at: datetime
-    is_archived: bool
+    updated_at: Optional[datetime] = None
+    is_archived: bool = False
+    board_data: Optional[Dict[str, Any]] = None
     
     class Config:
         from_attributes = True

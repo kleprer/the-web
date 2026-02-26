@@ -6,6 +6,7 @@ from database import get_db
 from models import models
 from utils.jwt import verify_token
 from schemas.token import TokenData
+from typing import Optional, List
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/token",
@@ -74,3 +75,46 @@ def require_user_id(user_id: int, current_user: models.User = Depends(get_curren
             detail="Нет доступа к этому ресурсу"
         )
     return user_id
+
+# Декоратор для проверки разрешений
+def require_permission(permission: str):
+    def permission_dependency(current_user: models.User = Depends(get_current_user)):
+        if not current_user.has_permission(permission):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Недостаточно прав. Требуется разрешение: {permission}"
+            )
+        return current_user
+    return permission_dependency
+
+# Проверка ролей
+def require_any_role(roles: List[str]):
+    def role_dependency(current_user: models.User = Depends(get_current_user)):
+        if not current_user.has_any_role(roles):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Недостаточно прав. Требуется одна из ролей: {', '.join(roles)}"
+            )
+        return current_user
+    return role_dependency
+
+def require_all_roles(roles: List[str]):
+    def role_dependency(current_user: models.User = Depends(get_current_user)):
+        if not current_user.has_all_roles(roles):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Недостаточно прав. Требуются все роли: {', '.join(roles)}"
+            )
+        return current_user
+    return role_dependency
+
+# Проверка доступа к ресурсу (владелец или админ)
+def require_resource_owner(resource_user_id: int):
+    def owner_dependency(current_user: models.User = Depends(get_current_user)):
+        if current_user.id != resource_user_id and not current_user.is_admin():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Нет доступа к этому ресурсу"
+            )
+        return current_user
+    return owner_dependency

@@ -1,17 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
+import { UserOutlined, LogoutOutlined, SettingOutlined, TeamOutlined } from '@ant-design/icons';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 import { NavbarProps, UserDropdownProps, BoardDropdownProps } from '../types/props';
 import { Investigation } from '../types/index';
+import { ShowForAdmin, ShowForManager, WithPermission } from './WithPermission';
 
 const Navbar: React.FC<NavbarProps> = ({ currentBoardName = "Текущая доска" }) => {
   const { boardId } = useParams<{ boardId: string }>();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin, isManager } = useAuth();
   const [userBoards, setUserBoards] = useState<Investigation[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+
+  console.log('🔍 Navbar - текущий пользователь:', user);
+  console.log('🔍 Navbar - роли:', user?.roles);
+  console.log('🔍 Navbar - isAdmin:', isAdmin());
+  console.log('🔍 Navbar - isManager:', isManager());
 
   // Используем useCallback для мемоизации функции
   const loadUserBoards = useCallback(async (): Promise<void> => {
@@ -25,12 +31,12 @@ const Navbar: React.FC<NavbarProps> = ({ currentBoardName = "Текущая до
     } finally {
       setLoading(false);
     }
-  }, [user?.id]); // Зависимость от user.id
+  }, [user?.id]);
 
   // Загружаем доски пользователя
   useEffect(() => {
     loadUserBoards();
-  }, [loadUserBoards]); // Теперь зависимость корректная
+  }, [loadUserBoards]);
 
   const handleLogout = (): void => {
     logout();
@@ -45,6 +51,8 @@ const Navbar: React.FC<NavbarProps> = ({ currentBoardName = "Текущая до
             <UserDropdown 
               userData={user}
               onLogout={handleLogout}
+              isAdmin={isAdmin()}
+              isManager={isManager()}
             />
           )}
           
@@ -60,6 +68,19 @@ const Navbar: React.FC<NavbarProps> = ({ currentBoardName = "Текущая до
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Админ-панель - только для админов и менеджеров */}
+          {(isAdmin() || isManager()) && (
+            <Link 
+              to="/admin" 
+              className="flex flex-row items-end hover:opacity-80 transition-opacity mr-2"
+            >
+              <SettingOutlined className="text-white text-xl mr-1" />
+              <p className="font-inter font-light text-sm text-white leading-none mt-1">
+                админ
+              </p>
+            </Link>
+          )}
+
           {boardId && (
             <>
               <Link 
@@ -116,8 +137,29 @@ const Navbar: React.FC<NavbarProps> = ({ currentBoardName = "Текущая до
 };
 
 // Компонент выпадающего меню пользователя
-const UserDropdown: React.FC<UserDropdownProps> = ({ userData, onLogout }) => {
+const UserDropdown: React.FC<UserDropdownProps & { isAdmin: boolean; isManager: boolean }> = ({ 
+  userData, 
+  onLogout,
+  isAdmin,
+  isManager 
+}) => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const navigate = useNavigate();
+
+  console.log('👤 UserDropdown - данные пользователя:', userData);
+  console.log('👤 UserDropdown - роли:', userData.roles);
+  console.log('👤 UserDropdown - isAdmin prop:', isAdmin);
+  console.log('👤 UserDropdown - isManager prop:', isManager);
+
+  const getRoleBadge = () => {
+    if (isAdmin) {
+      return <span className="ml-2 text-xs bg-red-600 px-2 py-0.5 rounded-full">Admin</span>;
+    }
+    if (isManager) {
+      return <span className="ml-2 text-xs bg-blue-600 px-2 py-0.5 rounded-full">Manager</span>;
+    }
+    return <span className="ml-2 text-xs bg-gray-600 px-2 py-0.5 rounded-full">User</span>;
+  };
 
   return (
     <div className="relative">
@@ -131,12 +173,15 @@ const UserDropdown: React.FC<UserDropdownProps> = ({ userData, onLogout }) => {
 
       {isOpen && (
         <div 
-          className="absolute top-full left-0 mt-2 w-64 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50"
+          className="absolute top-full left-0 mt-2 w-72 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50"
           onMouseLeave={() => setIsOpen(false)}
         >
           <div className="p-4">
-            <div className="text-sm text-gray-400 mb-2">
-              Аккаунт
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm text-gray-400">
+                Аккаунт
+              </div>
+              {getRoleBadge()}
             </div>
             
             <div className="space-y-2 mb-4">
@@ -151,10 +196,29 @@ const UserDropdown: React.FC<UserDropdownProps> = ({ userData, onLogout }) => {
               </div>
               
               <div className="flex items-center gap-2">
-                <span className="text-white font-medium text-sm">ID:</span>
-                <span className="text-gray-400 text-xs">{userData.id}</span>
+                <span className="text-white font-medium text-sm">Роли:</span>
+                <span className="text-gray-400 text-xs">
+                  {userData.roles?.join(', ') || 'user'}
+                </span>
               </div>
             </div>
+
+            {/* Админские ссылки */}
+            {(isAdmin || isManager) && (
+              <>
+                <div className="border-t border-gray-700 my-3"></div>
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    navigate('/admin/users');
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors text-sm font-medium mb-2"
+                >
+                  <TeamOutlined />
+                  <span>Управление пользователями</span>
+                </button>
+              </>
+            )}
 
             <div className="border-t border-gray-700 my-3"></div>
 
@@ -164,7 +228,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({ userData, onLogout }) => {
             >
               <LogoutOutlined />
               <span>Выйти из аккаунта</span>
-        </button>
+            </button>
           </div>
         </div>
       )}
@@ -172,7 +236,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({ userData, onLogout }) => {
   );
 };
 
-// Компонент выпадающего списка досок с реальными данными
+// Компонент выпадающего списка досок
 const BoardDropdown: React.FC<BoardDropdownProps> = ({ currentBoardName, boards, currentBoardId, loading }) => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
 

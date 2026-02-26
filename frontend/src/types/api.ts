@@ -15,6 +15,7 @@ export interface AuthResponse {
   user_id: number;
   username: string;
   email: string;
+  roles?: string[]; // Добавляем роли
 }
 
 export interface TokenRefreshResponse {
@@ -28,6 +29,7 @@ export interface UserInfoResponse {
     id: number;
     username: string;
     email: string;
+    roles?: string[]; // Добавляем роли
   };
 }
 

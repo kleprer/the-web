@@ -3,6 +3,7 @@ export interface User {
   id: number;
   username: string;
   email: string;
+  roles?: string[]; // Добавляем роли
 }
 
 export interface UserWithTokens extends User {
@@ -18,6 +19,7 @@ export interface AuthResponse {
   user_id: number;
   username: string;
   email: string;
+  roles?: string[]; // Добавляем роли
 }
 
 export interface Investigation {
@@ -52,6 +54,7 @@ export interface AppFile {
   name?: string;
   type?: string;
   size?: string;
+  uploaded_by?: number; // ID пользователя, загрузившего файл
 }
 
 export interface Card {

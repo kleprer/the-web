@@ -13,8 +13,39 @@ from api.user import router as user_router
 from api.board import router as board_router
 from datetime import datetime 
 
-models.Base.metadata.drop_all(bind=engine)
+# Создаем таблицы
 models.Base.metadata.create_all(bind=engine)
+
+# Функция для создания начальных данных
+def init_db():
+    db = next(get_db())
+    
+    # Проверяем, есть ли уже пользователи
+    if db.query(models.User).count() == 0:
+        # Создаем администратора
+        admin = models.User(
+            username="admin",
+            email="admin@example.com",
+            password_hash=models.User.get_password_hash("admin123"),
+            is_active=True,
+            created_at=datetime.now(),
+            roles=["admin"]
+        )
+        db.add(admin)
+        
+        # Создаем обычного пользователя
+        user = models.User(
+            username="user",
+            email="user@example.com",
+            password_hash=models.User.get_password_hash("user123"),
+            is_active=True,
+            created_at=datetime.now(),
+            roles=["user"]
+        )
+        db.add(user)
+        
+        db.commit()
+        print("✅ Созданы начальные пользователи: admin/admin123, user/user123")
 
 app = FastAPI(
     title="Journalist Assistant API",
@@ -24,6 +55,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Инициализация базы данных
+init_db()
 
 # CORS
 app.add_middleware(

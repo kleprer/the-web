@@ -1,6 +1,5 @@
-# backend/schemas/token.py
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 class Token(BaseModel):
     access_token: str

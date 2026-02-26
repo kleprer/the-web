@@ -103,6 +103,7 @@ export interface EmptyTimelineProps {
 export interface EvidenceCardProps {
   file: AppFile;
   onDelete: () => void;
+  showOwner?: boolean; // Показывать ли владельца файла
 }
 
 export interface ExportFormProps {
@@ -152,4 +153,34 @@ export interface ToolbarProps {
   onConnect: () => void;
   onAddPhoto: () => void;
   isMovingCanvas?: boolean;
+}
+
+// Новые типы для RBAC
+export interface WithPermissionProps {
+  children: ReactNode;
+  permission: string;
+  fallback?: ReactNode;
+}
+
+export interface WithRoleProps {
+  children: ReactNode;
+  roles: string[];
+  requireAll?: boolean;
+  fallback?: ReactNode;
+}
+
+export interface ShowForAdminProps {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+export interface ShowForManagerProps {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+export interface ShowForOwnerProps {
+  children: ReactNode;
+  resourceUserId: number;
+  fallback?: ReactNode;
 }

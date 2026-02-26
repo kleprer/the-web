@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, JSON, Boolean
 from database import Base
 import hashlib
+from datetime import datetime
 
 class User(Base):
     __tablename__ = "users"
@@ -12,6 +13,9 @@ class User(Base):
     password_hash = Column(String, nullable=True)  # SHA256 хеш
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, nullable=True)
+    
+    # Роли - храним как JSON массив строк
+    roles = Column(JSON, default=["user"])
     
     def verify_password(self, password: str):
         # Проверяем password_hash (SHA256)
@@ -33,6 +37,52 @@ class User(Base):
     def get_password_hash(password: str):
         """Публичный метод для хеширования"""
         return User.get_sha256_hash(password)
+    
+    def has_permission(self, permission: str) -> bool:
+        """Проверка, есть ли у пользователя конкретное разрешение"""
+        # Админ имеет все права
+        if "admin" in self.roles:
+            return True
+        
+        # Определяем базовые права для каждой роли
+        role_permissions = {
+            "admin": ["*"],  # все права
+            "manager": [
+                "create:investigation", "read:any_investigation", "update:any_investigation",
+                "create:timeline", "update:timeline", "delete:own_timeline",
+                "upload:file", "download:file", "delete:own_file",
+                "manage:users"
+            ],
+            "user": [
+                "create:investigation", "read:own_investigation", "update:own_investigation",
+                "create:timeline", "update:own_timeline", "delete:own_timeline",
+                "upload:file", "download:own_file", "delete:own_file"
+            ]
+        }
+        
+        # Проверяем по всем ролям пользователя
+        for role in self.roles:
+            if role in role_permissions:
+                if "*" in role_permissions[role] or permission in role_permissions[role]:
+                    return True
+        
+        return False
+    
+    def has_any_role(self, roles: list) -> bool:
+        """Проверка, есть ли у пользователя хотя бы одна из указанных ролей"""
+        return any(role in self.roles for role in roles)
+    
+    def has_all_roles(self, roles: list) -> bool:
+        """Проверка, есть ли у пользователя все указанные роли"""
+        return all(role in self.roles for role in roles)
+    
+    def is_admin(self) -> bool:
+        """Проверка, является ли пользователь администратором"""
+        return "admin" in self.roles
+    
+    def is_manager(self) -> bool:
+        """Проверка, является ли пользователь менеджером"""
+        return "manager" in self.roles or self.is_admin()
 
 class Investigation(Base):
     __tablename__ = "investigations"
@@ -62,6 +112,9 @@ class File(Base):
     title = Column(String)
     description = Column(Text)
     tags = Column(JSON)
+    
+    # ownership
+    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
 class TimelineEvent(Base):
     __tablename__ = "timeline_events"

@@ -18,7 +18,8 @@ class TimelineEventUpdate(BaseModel):
 class TimelineEventResponse(TimelineEventBase):
     id: int
     investigation_id: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
+    attached_files: Optional[list] = None
     
     class Config:
         from_attributes = True
