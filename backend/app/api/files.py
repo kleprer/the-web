@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, status
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc, asc
 from datetime import datetime
@@ -9,10 +9,13 @@ import shutil
 import json
 from typing import List, Optional
 from urllib.parse import quote
+from io import BytesIO
 from database import get_db
 from models import models
 from schemas.file import FileResponse as FileResponseSchema, FileUpdate
 from dependencies.auth import get_current_user
+from config import S3Config
+from services.s3 import S3Service
 
 router = APIRouter(prefix="/files", tags=["files"])
 
@@ -30,10 +33,24 @@ ALLOWED_MIME_TYPES = {
 
 MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 
+# Инициализация S3
+s3_service = None
+if S3Config.is_configured():
+    try:
+        s3_service = S3Service(
+            endpoint=S3Config.ENDPOINT,
+            access_key=S3Config.ACCESS_KEY,
+            secret_key=S3Config.SECRET_KEY,
+            bucket=S3Config.BUCKET_NAME,
+            secure=S3Config.USE_SSL
+        )
+        print("✅ S3/MinIO подключен")
+    except Exception as e:
+        print(f"⚠️ Ошибка подключения S3: {e}, используется локальное хранилище")
+
 
 def validate_file(file: UploadFile) -> tuple[bool, str, str]:
     """Проверка типа и размера файла"""
-    # Проверка размера
     file.file.seek(0, 2)
     size = file.file.tell()
     file.file.seek(0)
@@ -41,10 +58,8 @@ def validate_file(file: UploadFile) -> tuple[bool, str, str]:
     if size > MAX_FILE_SIZE:
         return False, "file_too_large", f"Размер файла превышает {MAX_FILE_SIZE // (1024*1024)}MB"
     
-    # Проверка типа
     mime_type = file.content_type or "application/octet-stream"
     
-    # Определяем тип файла
     if mime_type.startswith('image/'):
         file_type = 'image'
     elif mime_type in ALLOWED_MIME_TYPES['document']:
@@ -68,8 +83,7 @@ async def upload_file(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Загрузка файла с указанием уровня доверия"""
-    # Проверяем существование расследования
+    """Загрузка файла с поддержкой S3/MinIO"""
     investigation = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id
     ).first()
@@ -77,38 +91,42 @@ async def upload_file(
     if not investigation:
         raise HTTPException(status_code=404, detail="Расследование не найдено")
     
-    # Валидация файла
     is_valid, file_type, mime_type = validate_file(file)
     if not is_valid:
         raise HTTPException(status_code=400, detail="Ошибка валидации файла")
     
-    # Генерируем уникальное имя файла
-    file_ext = file.filename.split('.')[-1] if '.' in file.filename else ''
-    unique_filename = f"{uuid.uuid4()}.{file_ext}"
+    # Читаем файл
+    file_content = await file.read()
     
-    # Определяем поддиректорию по типу файла
-    subdir = ""
-    if file_type == 'image':
-        subdir = "images"
-    elif file_type == 'document':
-        subdir = "documents"
-    elif file_type == 'media':
-        subdir = "media"
+    # Загружаем в хранилище
+    if s3_service:
+        result = s3_service.upload_file(file_content, file.filename, mime_type)
+        file_path = result['file_path']
+        s3_key = result['file_key']
+        print(f"📤 Файл загружен в MinIO: {s3_key}")
     else:
-        subdir = "other"
-    
-    # Создаем поддиректорию если не существует
-    os.makedirs(os.path.join(UPLOAD_DIR, subdir), exist_ok=True)
-    
-    file_path = os.path.join(UPLOAD_DIR, subdir, unique_filename)
-    
-    # Сохраняем файл на диск
-    try:
+        # Локальное сохранение
+        file_ext = file.filename.split('.')[-1] if '.' in file.filename else ''
+        unique_filename = f"{uuid.uuid4()}.{file_ext}"
+        
+        subdir = ""
+        if file_type == 'image':
+            subdir = "images"
+        elif file_type == 'document':
+            subdir = "documents"
+        elif file_type == 'media':
+            subdir = "media"
+        else:
+            subdir = "other"
+        
+        os.makedirs(os.path.join(UPLOAD_DIR, subdir), exist_ok=True)
+        file_path = os.path.join(UPLOAD_DIR, subdir, unique_filename)
+        
         with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        print(f"✅ Файл сохранен: {file_path}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Ошибка сохранения файла: {str(e)}")
+            buffer.write(file_content)
+        
+        s3_key = None
+        print(f"📤 Файл сохранен локально: {file_path}")
     
     # Парсим теги
     try:
@@ -116,14 +134,15 @@ async def upload_file(
     except:
         tags_list = []
     
-    # Создаем запись в базе данных
+    # Создаем запись в БД
     db_file = models.File(
         investigation_id=investigation_id,
         filename=file.filename,
         file_path=file_path,
+        s3_key=s3_key,
         file_type=file_type,
         mime_type=mime_type,
-        file_size=os.path.getsize(file_path),
+        file_size=len(file_content),
         uploaded_at=datetime.now(),
         title=title or file.filename,
         description=description,
@@ -156,7 +175,6 @@ def filter_files(
     """Получение файлов с фильтрацией, сортировкой и пагинацией"""
     from schemas.file import FileResponse
     
-    # Проверяем существование расследования
     investigation = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id
     ).first()
@@ -164,10 +182,8 @@ def filter_files(
     if not investigation:
         raise HTTPException(status_code=404, detail="Расследование не найдено")
     
-    # Формируем запрос
     query = db.query(models.File).filter(models.File.investigation_id == investigation_id)
     
-    # Применяем фильтры
     if search:
         query = query.filter(
             or_(
@@ -197,7 +213,6 @@ def filter_files(
         except:
             pass
     
-    # Применяем сортировку
     sort_mapping = {
         "date_asc": asc(models.File.uploaded_at),
         "date_desc": desc(models.File.uploaded_at),
@@ -214,14 +229,10 @@ def filter_files(
     else:
         query = query.order_by(desc(models.File.uploaded_at))
     
-    # Получаем общее количество
     total = query.count()
-    
-    # Применяем пагинацию
     offset = (page - 1) * limit
     files = query.offset(offset).limit(limit).all()
     
-    # Сериализуем через Pydantic схему
     serialized_files = [FileResponse.model_validate(f) for f in files]
     
     return {
@@ -233,61 +244,53 @@ def filter_files(
     }
 
 
-@router.get("/download-url/{file_id}")
-def get_download_url(
-    file_id: int,
-    db: Session = Depends(get_db)
-):
-    """Получение URL для скачивания файла"""
-    print(f"🔗 Запрос ссылки для файла {file_id}")
-    
-    file_record = db.query(models.File).filter(models.File.id == file_id).first()
-    
-    if not file_record:
-        raise HTTPException(status_code=404, detail="Файл не найден")
-    
-    # Возвращаем прямой URL для скачивания
-    return {"url": f"/files/download/{file_id}"}
-
-
 @router.get("/download/{file_id}")
 async def download_file(
     file_id: int,
     db: Session = Depends(get_db)
 ):
-    """Скачивание файла"""
+    """Скачивание файла - работает и с локальными файлами, и с S3"""
     print(f"📥 Запрос на скачивание файла {file_id}")
     
-    # Получаем файл из базы данных
     file_record = db.query(models.File).filter(models.File.id == file_id).first()
     
     if not file_record:
-        print(f"❌ Файл {file_id} не найден в базе данных")
         raise HTTPException(status_code=404, detail="Файл не найден")
     
-    print(f"📄 Файл найден: {file_record.filename}")
-    print(f"   Путь: {file_record.file_path}")
-    print(f"   Тип: {file_record.mime_type}")
-    print(f"   Размер: {file_record.file_size} байт")
+    encoded_filename = quote(file_record.filename)
     
-    # Проверяем существование файла на диске
+    # Если файл в S3
+    if file_record.s3_key and s3_service:
+        try:
+            print(f"📥 Скачивание из MinIO: {file_record.s3_key}")
+            file_data = s3_service.download_file(file_record.s3_key)
+            
+            # Возвращаем файл как StreamingResponse
+            return StreamingResponse(
+                BytesIO(file_data),
+                media_type=file_record.mime_type,
+                headers={
+                    "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+                }
+            )
+        except Exception as e:
+            print(f"❌ Ошибка скачивания из MinIO: {e}")
+            raise HTTPException(status_code=500, detail="Ошибка получения файла")
+    
+    # Для локальных файлов
     if not os.path.exists(file_record.file_path):
-        print(f"❌ Файл не найден на диске по пути: {file_record.file_path}")
-        
-        # Пробуем найти файл в разных директориях
+        # Пробуем найти файл
         filename = os.path.basename(file_record.file_path)
         possible_paths = [
             f"uploads/{filename}",
             f"uploads/images/{filename}",
             f"uploads/documents/{filename}",
             f"uploads/media/{filename}",
-            f"uploads/other/{filename}",
         ]
         
         found = False
         for path in possible_paths:
             if os.path.exists(path):
-                print(f"✅ Файл найден по альтернативному пути: {path}")
                 file_record.file_path = path
                 db.commit()
                 found = True
@@ -296,12 +299,6 @@ async def download_file(
         if not found:
             raise HTTPException(status_code=404, detail="Файл не найден на сервере")
     
-    print(f"✅ Отправка файла: {file_record.filename}")
-    
-    # Кодируем имя файла для заголовка Content-Disposition
-    encoded_filename = quote(file_record.filename)
-    
-    # Отправляем файл с правильной кодировкой
     return FileResponse(
         path=file_record.file_path,
         filename=file_record.filename,
@@ -318,26 +315,23 @@ def delete_file(
     db: Session = Depends(get_db)
 ):
     """Удаление файла"""
-    print(f"🗑️ Запрос на удаление файла {file_id}")
-    
-    # Получаем файл из базы данных
     file_record = db.query(models.File).filter(models.File.id == file_id).first()
     
     if not file_record:
         raise HTTPException(status_code=404, detail="Файл не найден")
     
-    # Удаляем файл с диска
-    if os.path.exists(file_record.file_path):
+    # Удаляем из S3 если есть
+    if file_record.s3_key and s3_service:
+        s3_service.delete_file(file_record.s3_key)
+    
+    # Удаляем локальный файл
+    elif file_record.file_path and os.path.exists(file_record.file_path):
         try:
             os.remove(file_record.file_path)
-            print(f"✅ Файл удален с диска: {file_record.file_path}")
         except Exception as e:
-            print(f"⚠️ Не удалось удалить файл с диска: {e}")
+            print(f"⚠️ Не удалось удалить файл: {e}")
     
-    # Удаляем запись из базы данных
     db.delete(file_record)
     db.commit()
-    
-    print(f"✅ Файл {file_id} успешно удален")
     
     return {"message": "Файл успешно удален"}

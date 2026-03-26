@@ -410,32 +410,30 @@ async downloadFile(fileId: number): Promise<Blob> {
     credentials: 'include'
   });
   
-  console.log('📊 Статус ответа:', response.status);
-  console.log('📊 Заголовки ответа:', Object.fromEntries(response.headers.entries()));
-  
   if (!response.ok) {
-    let errorMessage = `Download failed: ${response.status}`;
-    try {
-      const errorData = await response.json();
-      errorMessage = errorData.detail || errorMessage;
-    } catch {
-      const errorText = await response.text();
-      if (errorText) errorMessage = errorText;
+    const errorText = await response.text();
+    throw new Error(`Download failed: ${response.status} - ${errorText}`);
+  }
+  
+  const contentType = response.headers.get('content-type');
+  
+  // Если пришел JSON с redirect, загружаем по этому URL
+  if (contentType && contentType.includes('application/json')) {
+    const data = await response.json();
+    if (data.redirect) {
+      console.log('🔗 Получен redirect URL, загружаем файл...');
+      // Загружаем файл по pre-signed URL
+      const fileResponse = await fetch(data.redirect);
+      if (!fileResponse.ok) {
+        throw new Error(`Failed to download from pre-signed URL: ${fileResponse.status}`);
+      }
+      return fileResponse.blob();
     }
-    console.error('❌ Ошибка скачивания:', errorMessage);
-    throw new Error(errorMessage);
   }
   
-  const blob = await response.blob();
-  console.log('✅ Файл получен, размер:', blob.size, 'тип:', blob.type);
-  
-  if (blob.size === 0) {
-    console.error('❌ Получен пустой файл');
-    throw new Error('Получен пустой файл');
-  }
-  
-  return blob;
+  return response.blob();
 }
+
   async updateUserProfile(userData: Partial<User>): Promise<User> {
     return this.request<User>('/users/me', {
       method: 'PUT',
