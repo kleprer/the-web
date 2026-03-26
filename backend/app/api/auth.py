@@ -474,6 +474,7 @@ def update_user_roles(
     }
 
 
+
 @router.post("/users/{user_id}/make-admin")
 def make_user_admin(
     user_id: int,

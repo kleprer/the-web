@@ -1,4 +1,4 @@
-import { LoginCredentials, SignupCredentials, AuthResponse, TokenRefreshResponse, UserInfoResponse, UploadMetadata } from '../types/api';
+import { LoginCredentials, SignupCredentials, AuthResponse, TokenRefreshResponse, UserInfoResponse, UploadMetadata, FileFilters, PaginatedFilesResponse } from '../types/api';
 import { Investigation, AppFile, TimelineEvent, BoardState, User } from '../types/index';
 
 const API_BASE_URL = 'http://localhost:8000';
@@ -123,7 +123,8 @@ class ApiService {
 
       if (!response.ok) {
         console.error(`❌ HTTP error ${response.status} for ${endpoint}`);
-        return Promise.reject(new Error(`HTTP error ${response.status}`));
+        const errorData = await response.json().catch(() => ({}));
+        return Promise.reject(new Error(errorData.detail || `HTTP error ${response.status}`));
       }
 
       const data = await response.json() as T;
@@ -267,12 +268,16 @@ class ApiService {
     });
   }
 
+  // Работа с файлами
   async uploadFile(investigationId: number, file: File, metadata: UploadMetadata = {}): Promise<AppFile> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('title', metadata.title || file.name);
     formData.append('description', metadata.description || '');
     formData.append('tags', JSON.stringify(metadata.tags || []));
+    if (metadata.trust_level) {
+      formData.append('trust_level', metadata.trust_level);
+    }
 
     const url = `${this.baseURL}/files/upload/${investigationId}`;
     const headers: HeadersInit = {};
@@ -281,7 +286,11 @@ class ApiService {
       headers['Authorization'] = `Bearer ${this.accessToken}`;
     }
 
-    console.log('📤 Загрузка файла:', { investigationId, fileName: file.name });
+    console.log('📤 Загрузка файла:', { 
+      investigationId, 
+      fileName: file.name,
+      trust_level: metadata.trust_level 
+    });
 
     const response = await fetch(url, {
       method: 'POST',
@@ -306,12 +315,41 @@ class ApiService {
     return data;
   }
 
+  // Получение файлов с серверной фильтрацией и пагинацией
+  async getFilesWithFilters(filters: FileFilters): Promise<PaginatedFilesResponse> {
+    const queryParams = new URLSearchParams();
+    queryParams.set('investigation_id', filters.investigation_id.toString());
+    
+    if (filters.search) queryParams.set('search', filters.search);
+    if (filters.trust_level) queryParams.set('trust_level', filters.trust_level);
+    if (filters.file_type) queryParams.set('file_type', filters.file_type);
+    if (filters.date_from) queryParams.set('date_from', filters.date_from);
+    if (filters.date_to) queryParams.set('date_to', filters.date_to);
+    if (filters.sort_by) queryParams.set('sort_by', filters.sort_by);
+    if (filters.page) queryParams.set('page', filters.page.toString());
+    if (filters.limit) queryParams.set('limit', filters.limit.toString());
+
+    const url = `/files/filter?${queryParams.toString()}`;
+    return this.request<PaginatedFilesResponse>(url);
+  }
+
   async getFiles(investigationId: number, fileType: string | null = null): Promise<AppFile[]> {
     const endpoint = fileType 
       ? `/files/${fileType}/${investigationId}`
       : `/files?investigation_id=${investigationId}`;
     
     return this.request<AppFile[]>(endpoint);
+  }
+
+  // Получение URL для скачивания файла
+  async getDownloadUrl(fileId: number): Promise<string> {
+    try {
+      const response = await this.request<{ url: string }>(`/files/download-url/${fileId}`);
+      return response.url;
+    } catch (error) {
+      console.error('Ошибка получения ссылки для скачивания:', error);
+      return `${this.baseURL}/files/download/${fileId}`;
+    }
   }
 
   async deleteFile(fileId: number): Promise<void> {
@@ -368,9 +406,10 @@ class ApiService {
       method: 'DELETE',
     });
   }
+
   async getUsersWithRoles(): Promise<any> {
-  return this.request('/auth/users/roles');
-}
+    return this.request('/auth/users/roles');
+  }
 }
 
 export const apiService = new ApiService();

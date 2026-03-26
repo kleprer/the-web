@@ -112,6 +112,7 @@ class Investigation(Base):
     is_archived = Column(Boolean, default=False)
     board_data = Column(JSON, nullable=True)  # { cards: [], texts: [], images: [], connections: [] }
 
+# Добавьте поле trust_level в модель File
 class File(Base):
     __tablename__ = "files"
     id = Column(Integer, primary_key=True, index=True)
@@ -129,6 +130,7 @@ class File(Base):
     title = Column(String)
     description = Column(Text)
     tags = Column(JSON)
+    trust_level = Column(String, default="unknown")  # 'high', 'unknown', 'low'
     
     # ownership
     uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True)

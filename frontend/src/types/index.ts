@@ -42,21 +42,19 @@ export interface TimelineEvent {
 
 export interface AppFile {
   id: number;
+  investigation_id: number;
   filename: string;
-  title?: string;
-  description?: string;
-  file_type: 'image' | 'video' | 'audio' | 'document' | string;
+  file_path: string;
+  file_type: 'image' | 'document' | 'media' | 'other';
   mime_type: string;
   file_size: number;
   uploaded_at: string;
-  investigation_id: number;
+  title: string;
+  description?: string;
   tags?: string[];
-  name?: string;
-  type?: string;
-  size?: string;
-  uploaded_by?: number; // ID пользователя, загрузившего файл
+  trust_level?: 'high' | 'unknown' | 'low';
+  uploaded_by?: number;
 }
-
 export interface Card {
   id: string;
   title: string;
@@ -96,3 +94,4 @@ export interface BoardState {
   images: Image[];
   connections: Connection[];
 }
+
