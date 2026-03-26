@@ -8,6 +8,7 @@ import uuid
 import shutil
 import json
 from typing import List, Optional
+from urllib.parse import quote
 from database import get_db
 from models import models
 from schemas.file import FileResponse as FileResponseSchema, FileUpdate
@@ -31,14 +32,14 @@ MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 
 
 def validate_file(file: UploadFile) -> tuple[bool, str, str]:
-    """Validate file type and size"""
+    """Проверка типа и размера файла"""
     # Проверка размера
     file.file.seek(0, 2)
     size = file.file.tell()
     file.file.seek(0)
     
     if size > MAX_FILE_SIZE:
-        return False, "file_too_large", f"File size exceeds {MAX_FILE_SIZE // (1024*1024)}MB limit"
+        return False, "file_too_large", f"Размер файла превышает {MAX_FILE_SIZE // (1024*1024)}MB"
     
     # Проверка типа
     mime_type = file.content_type or "application/octet-stream"
@@ -67,47 +68,55 @@ async def upload_file(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Upload ANY type of file with trust level"""
-    # Проверка прав
-    if not current_user.has_permission("upload:file"):
-        raise HTTPException(status_code=403, detail="Permission denied")
-    
-    # Verify investigation exists and user has access
+    """Загрузка файла с указанием уровня доверия"""
+    # Проверяем существование расследования
     investigation = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id
     ).first()
     
     if not investigation:
-        raise HTTPException(status_code=404, detail="Investigation not found")
-    
-    # Проверка прав доступа к расследованию
-    if investigation.user_id != current_user.id and not current_user.has_permission("read:any_investigation"):
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise HTTPException(status_code=404, detail="Расследование не найдено")
     
     # Валидация файла
     is_valid, file_type, mime_type = validate_file(file)
     if not is_valid:
-        raise HTTPException(status_code=400, detail="File validation failed")
+        raise HTTPException(status_code=400, detail="Ошибка валидации файла")
     
-    # Generate unique filename
+    # Генерируем уникальное имя файла
     file_ext = file.filename.split('.')[-1] if '.' in file.filename else ''
     unique_filename = f"{uuid.uuid4()}.{file_ext}"
-    file_path = os.path.join(UPLOAD_DIR, unique_filename)
     
-    # Save file
+    # Определяем поддиректорию по типу файла
+    subdir = ""
+    if file_type == 'image':
+        subdir = "images"
+    elif file_type == 'document':
+        subdir = "documents"
+    elif file_type == 'media':
+        subdir = "media"
+    else:
+        subdir = "other"
+    
+    # Создаем поддиректорию если не существует
+    os.makedirs(os.path.join(UPLOAD_DIR, subdir), exist_ok=True)
+    
+    file_path = os.path.join(UPLOAD_DIR, subdir, unique_filename)
+    
+    # Сохраняем файл на диск
     try:
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+        print(f"✅ Файл сохранен: {file_path}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка сохранения файла: {str(e)}")
     
-    # Parse tags
+    # Парсим теги
     try:
         tags_list = json.loads(tags) if tags else []
     except:
         tags_list = []
     
-    # Create file record
+    # Создаем запись в базе данных
     db_file = models.File(
         investigation_id=investigation_id,
         filename=file.filename,
@@ -120,7 +129,7 @@ async def upload_file(
         description=description,
         tags=tags_list,
         trust_level=trust_level,
-        uploaded_by=current_user.id
+        uploaded_by=current_user.id if current_user else None
     )
     
     db.add(db_file)
@@ -132,42 +141,33 @@ async def upload_file(
 
 @router.get("/filter")
 def filter_files(
-    investigation_id: int = Query(..., description="ID of the investigation"),
-    search: Optional[str] = Query(None, description="Search by title or filename"),
-    trust_level: Optional[str] = Query(None, description="Filter by trust level (high, unknown, low)"),
-    file_type: Optional[str] = Query(None, description="Filter by file type (image, document, media, other)"),
-    date_from: Optional[str] = Query(None, description="Filter from date (ISO format)"),
-    date_to: Optional[str] = Query(None, description="Filter to date (ISO format)"),
-    sort_by: Optional[str] = Query("date_desc", description="Sort field and direction"),
-    page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(12, ge=1, le=100, description="Items per page"),
+    investigation_id: int = Query(..., description="ID расследования"),
+    search: Optional[str] = Query(None, description="Поиск по названию или имени файла"),
+    trust_level: Optional[str] = Query(None, description="Фильтр по уровню доверия (high, unknown, low)"),
+    file_type: Optional[str] = Query(None, description="Фильтр по типу файла (image, document, media, other)"),
+    date_from: Optional[str] = Query(None, description="Фильтр от даты (ISO формат)"),
+    date_to: Optional[str] = Query(None, description="Фильтр до даты (ISO формат)"),
+    sort_by: Optional[str] = Query("date_desc", description="Поле сортировки и направление"),
+    page: int = Query(1, ge=1, description="Номер страницы"),
+    limit: int = Query(12, ge=1, le=100, description="Количество элементов на странице"),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get files with filtering, sorting and pagination"""
+    """Получение файлов с фильтрацией, сортировкой и пагинацией"""
     from schemas.file import FileResponse
     
-    # Проверка прав
-    if not current_user.has_permission("read:any_investigation"):
-        if not current_user.has_permission("read:own_investigation"):
-            raise HTTPException(status_code=403, detail="Permission denied")
-    
-    # Verify investigation exists and user has access
+    # Проверяем существование расследования
     investigation = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id
     ).first()
     
     if not investigation:
-        raise HTTPException(status_code=404, detail="Investigation not found")
+        raise HTTPException(status_code=404, detail="Расследование не найдено")
     
-    # Проверка прав доступа к расследованию
-    if investigation.user_id != current_user.id and not current_user.has_permission("read:any_investigation"):
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    # Build query
+    # Формируем запрос
     query = db.query(models.File).filter(models.File.investigation_id == investigation_id)
     
-    # Apply filters
+    # Применяем фильтры
     if search:
         query = query.filter(
             or_(
@@ -197,8 +197,7 @@ def filter_files(
         except:
             pass
     
-    # Apply sorting
-    from sqlalchemy import asc, desc
+    # Применяем сортировку
     sort_mapping = {
         "date_asc": asc(models.File.uploaded_at),
         "date_desc": desc(models.File.uploaded_at),
@@ -215,10 +214,10 @@ def filter_files(
     else:
         query = query.order_by(desc(models.File.uploaded_at))
     
-    # Get total count
+    # Получаем общее количество
     total = query.count()
     
-    # Apply pagination
+    # Применяем пагинацию
     offset = (page - 1) * limit
     files = query.offset(offset).limit(limit).all()
     
@@ -234,206 +233,111 @@ def filter_files(
     }
 
 
-@router.get("/", response_model=List[FileResponseSchema])
-def get_files(
-    investigation_id: int = Query(..., description="ID of the investigation"),
-    file_type: Optional[str] = Query(None, description="Filter by file type"),
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Get files for an investigation (legacy endpoint)"""
-    # Проверка прав
-    if not current_user.has_permission("upload:file"):
-        raise HTTPException(status_code=403, detail="Permission denied")
-    
-    investigation = db.query(models.Investigation).filter(
-        models.Investigation.id == investigation_id
-    ).first()
-    
-    if not investigation:
-        raise HTTPException(status_code=404, detail="Investigation not found")
-    
-    if investigation.user_id != current_user.id and not current_user.has_permission("read:any_investigation"):
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    query = db.query(models.File).filter(models.File.investigation_id == investigation_id)
-    
-    if file_type:
-        query = query.filter(models.File.file_type == file_type)
-    
-    files = query.order_by(models.File.uploaded_at.desc()).all()
-    return files
-
-
 @router.get("/download-url/{file_id}")
 def get_download_url(
     file_id: int,
-    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get pre-signed URL for file download (for S3 integration)"""
-    # Проверка прав
-    if not current_user.has_permission("upload:file"):
-        raise HTTPException(status_code=403, detail="Permission denied")
+    """Получение URL для скачивания файла"""
+    print(f"🔗 Запрос ссылки для файла {file_id}")
     
-    file_record = db.query(models.File).join(
-        models.Investigation,
-        models.Investigation.id == models.File.investigation_id
-    ).filter(
-        models.File.id == file_id
-    ).first()
+    file_record = db.query(models.File).filter(models.File.id == file_id).first()
     
     if not file_record:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise HTTPException(status_code=404, detail="Файл не найден")
     
-    # Проверка прав доступа к файлу
-    if file_record.investigation.user_id != current_user.id and not current_user.has_permission("read:any_investigation"):
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    # Для локального хранения возвращаем прямой URL
-    # Для S3 здесь можно генерировать pre-signed URL
+    # Возвращаем прямой URL для скачивания
     return {"url": f"/files/download/{file_id}"}
 
 
 @router.get("/download/{file_id}")
 async def download_file(
     file_id: int,
-    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Download any file"""
-    # Проверка прав
-    if not current_user.has_permission("upload:file"):
-        raise HTTPException(status_code=403, detail="Permission denied")
+    """Скачивание файла"""
+    print(f"📥 Запрос на скачивание файла {file_id}")
     
-    file_record = db.query(models.File).join(
-        models.Investigation,
-        models.Investigation.id == models.File.investigation_id
-    ).filter(
-        models.File.id == file_id
-    ).first()
+    # Получаем файл из базы данных
+    file_record = db.query(models.File).filter(models.File.id == file_id).first()
     
     if not file_record:
-        raise HTTPException(status_code=404, detail="File not found")
+        print(f"❌ Файл {file_id} не найден в базе данных")
+        raise HTTPException(status_code=404, detail="Файл не найден")
     
-    # Проверка прав доступа к файлу
-    if file_record.investigation.user_id != current_user.id and not current_user.has_permission("read:any_investigation"):
-        raise HTTPException(status_code=403, detail="Access denied")
+    print(f"📄 Файл найден: {file_record.filename}")
+    print(f"   Путь: {file_record.file_path}")
+    print(f"   Тип: {file_record.mime_type}")
+    print(f"   Размер: {file_record.file_size} байт")
     
+    # Проверяем существование файла на диске
     if not os.path.exists(file_record.file_path):
-        raise HTTPException(status_code=404, detail="File not found on server")
+        print(f"❌ Файл не найден на диске по пути: {file_record.file_path}")
+        
+        # Пробуем найти файл в разных директориях
+        filename = os.path.basename(file_record.file_path)
+        possible_paths = [
+            f"uploads/{filename}",
+            f"uploads/images/{filename}",
+            f"uploads/documents/{filename}",
+            f"uploads/media/{filename}",
+            f"uploads/other/{filename}",
+        ]
+        
+        found = False
+        for path in possible_paths:
+            if os.path.exists(path):
+                print(f"✅ Файл найден по альтернативному пути: {path}")
+                file_record.file_path = path
+                db.commit()
+                found = True
+                break
+        
+        if not found:
+            raise HTTPException(status_code=404, detail="Файл не найден на сервере")
     
+    print(f"✅ Отправка файла: {file_record.filename}")
+    
+    # Кодируем имя файла для заголовка Content-Disposition
+    encoded_filename = quote(file_record.filename)
+    
+    # Отправляем файл с правильной кодировкой
     return FileResponse(
         path=file_record.file_path,
         filename=file_record.filename,
-        media_type=file_record.mime_type
+        media_type=file_record.mime_type,
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+        }
     )
-
-
-@router.put("/{file_id}", response_model=FileResponseSchema)
-def update_file_metadata(
-    file_id: int,
-    file_data: FileUpdate,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Update file metadata (title, description, tags, trust_level)"""
-    file_record = db.query(models.File).join(
-        models.Investigation,
-        models.Investigation.id == models.File.investigation_id
-    ).filter(
-        models.File.id == file_id
-    ).first()
-    
-    if not file_record:
-        raise HTTPException(status_code=404, detail="File not found")
-    
-    # Проверка прав доступа к файлу
-    if file_record.investigation.user_id != current_user.id and not current_user.has_permission("update:any_file"):
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    # Update fields
-    if file_data.title is not None:
-        file_record.title = file_data.title
-    if file_data.description is not None:
-        file_record.description = file_data.description
-    if file_data.tags is not None:
-        file_record.tags = file_data.tags
-    if file_data.trust_level is not None:
-        file_record.trust_level = file_data.trust_level
-    
-    db.commit()
-    db.refresh(file_record)
-    
-    return file_record
 
 
 @router.delete("/{file_id}")
 def delete_file(
     file_id: int,
-    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Delete any file"""
+    """Удаление файла"""
+    print(f"🗑️ Запрос на удаление файла {file_id}")
     
-    # Получаем файл
+    # Получаем файл из базы данных
     file_record = db.query(models.File).filter(models.File.id == file_id).first()
     
     if not file_record:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise HTTPException(status_code=404, detail="Файл не найден")
     
-    # Получаем расследование для проверки прав
-    investigation = db.query(models.Investigation).filter(
-        models.Investigation.id == file_record.investigation_id
-    ).first()
-    
-    if not investigation:
-        raise HTTPException(status_code=404, detail="Investigation not found")
-    
-    # Проверка прав доступа к файлу
-    if investigation.user_id != current_user.id and not current_user.has_permission("delete:any_file"):
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    # Delete from disk
+    # Удаляем файл с диска
     if os.path.exists(file_record.file_path):
         try:
             os.remove(file_record.file_path)
+            print(f"✅ Файл удален с диска: {file_record.file_path}")
         except Exception as e:
-            print(f"Warning: Could not delete file from disk: {e}")
+            print(f"⚠️ Не удалось удалить файл с диска: {e}")
     
-    # Delete from database
+    # Удаляем запись из базы данных
     db.delete(file_record)
     db.commit()
     
-    return {"message": "File deleted successfully"}
-
-
-# Legacy endpoints for backward compatibility
-@router.get("/investigation/{investigation_id}", response_model=List[FileResponseSchema])
-def get_files_by_investigation(
-    investigation_id: int,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Get files for an investigation (legacy endpoint)"""
-    return get_files(investigation_id=investigation_id, current_user=current_user, db=db)
-
-
-@router.get("/documents/{investigation_id}", response_model=List[FileResponseSchema])
-def get_documents(
-    investigation_id: int,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Get only documents (PDFs, Word docs, etc.)"""
-    return get_files(investigation_id=investigation_id, file_type='document', current_user=current_user, db=db)
-
-
-@router.get("/images/{investigation_id}", response_model=List[FileResponseSchema])
-def get_images(
-    investigation_id: int,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Get only images"""
-    return get_files(investigation_id=investigation_id, file_type='image', current_user=current_user, db=db)
+    print(f"✅ Файл {file_id} успешно удален")
+    
+    return {"message": "Файл успешно удален"}

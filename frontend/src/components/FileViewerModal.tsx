@@ -10,7 +10,7 @@ interface FileViewerModalProps {
 }
 
 const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose, onDownload }) => {
-  const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [fileBlobUrl, setFileBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,8 +18,12 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose, onDown
     const loadFile = async () => {
       try {
         setLoading(true);
-        const url = await apiService.getDownloadUrl(file.id);
-        setFileUrl(url);
+        setError(null);
+        
+        // Скачиваем файл как Blob
+        const blob = await apiService.downloadFile(file.id);
+        const url = URL.createObjectURL(blob);
+        setFileBlobUrl(url);
       } catch (err) {
         console.error('Ошибка загрузки файла:', err);
         setError('Не удалось загрузить файл');
@@ -29,6 +33,13 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose, onDown
     };
 
     loadFile();
+
+    // Очистка URL при размонтировании
+    return () => {
+      if (fileBlobUrl) {
+        URL.revokeObjectURL(fileBlobUrl);
+      }
+    };
   }, [file.id]);
 
   const getFileIcon = () => {
@@ -91,11 +102,11 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose, onDown
     }
 
     // Просмотр изображений
-    if (file.file_type === 'image' && fileUrl) {
+    if (file.file_type === 'image' && fileBlobUrl) {
       return (
         <div className="flex items-center justify-center min-h-96 bg-gray-900 rounded-lg overflow-hidden">
           <img
-            src={fileUrl}
+            src={fileBlobUrl}
             alt={file.title || file.filename}
             className="max-w-full max-h-[70vh] object-contain"
           />
@@ -104,11 +115,11 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose, onDown
     }
 
     // Просмотр PDF
-    if (file.mime_type === 'application/pdf' && fileUrl) {
+    if (file.mime_type === 'application/pdf' && fileBlobUrl) {
       return (
         <div className="h-[70vh]">
           <iframe
-            src={`${fileUrl}#toolbar=0`}
+            src={`${fileBlobUrl}#toolbar=0`}
             className="w-full h-full rounded-lg"
             title={file.title || file.filename}
           />
@@ -137,7 +148,6 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose, onDown
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
-        {/* Заголовок */}
         <div className="flex justify-between items-center p-4 border-b">
           <div className="flex-1">
             <h2 className="text-xl font-semibold text-gray-800">
@@ -174,14 +184,12 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose, onDown
           </div>
         </div>
 
-        {/* Описание */}
         {file.description && (
           <div className="px-4 py-2 bg-gray-50 border-b">
             <p className="text-sm text-gray-600">{file.description}</p>
           </div>
         )}
 
-        {/* Содержимое */}
         <div className="flex-1 overflow-auto p-4">
           {renderContent()}
         </div>

@@ -394,6 +394,48 @@ class ApiService {
     return this.request<UserInfoResponse>('/users/me');
   }
 
+// Скачивание файла
+async downloadFile(fileId: number): Promise<Blob> {
+  const url = `${this.baseURL}/files/download/${fileId}`;
+  const headers: HeadersInit = {};
+  
+  if (this.accessToken) {
+    headers['Authorization'] = `Bearer ${this.accessToken}`;
+  }
+
+  console.log('📥 Скачивание файла:', url);
+  
+  const response = await fetch(url, { 
+    headers,
+    credentials: 'include'
+  });
+  
+  console.log('📊 Статус ответа:', response.status);
+  console.log('📊 Заголовки ответа:', Object.fromEntries(response.headers.entries()));
+  
+  if (!response.ok) {
+    let errorMessage = `Download failed: ${response.status}`;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.detail || errorMessage;
+    } catch {
+      const errorText = await response.text();
+      if (errorText) errorMessage = errorText;
+    }
+    console.error('❌ Ошибка скачивания:', errorMessage);
+    throw new Error(errorMessage);
+  }
+  
+  const blob = await response.blob();
+  console.log('✅ Файл получен, размер:', blob.size, 'тип:', blob.type);
+  
+  if (blob.size === 0) {
+    console.error('❌ Получен пустой файл');
+    throw new Error('Получен пустой файл');
+  }
+  
+  return blob;
+}
   async updateUserProfile(userData: Partial<User>): Promise<User> {
     return this.request<User>('/users/me', {
       method: 'PUT',

@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { FileAddOutlined, SearchOutlined, FilterOutlined, CloseOutlined, EyeOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
+import { FileAddOutlined, SearchOutlined, FilterOutlined, CloseOutlined } from '@ant-design/icons';
 import EvidenceCard from '../components/EvidenceCard';
 import Navbar from '../components/Navbar';
 import UploadFileModal from '../components/UploadFileModal';
 import FileViewerModal from '../components/FileViewerModal';
 import { apiService } from '../services/api';
-import { useAuth } from '../context/AuthContext';
 import { Investigation, AppFile } from '../types/index';
 
 interface FilterState {
@@ -26,18 +25,16 @@ const EvidenceStorage: React.FC = () => {
   const { boardId } = useParams<{ boardId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
   
   const [investigation, setInvestigation] = useState<Investigation | null>(null);
   const [allFiles, setAllFiles] = useState<AppFile[]>([]);
-  const [filteredFiles, setFilteredFiles] = useState<AppFile[]>([]);
   const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
   const [showViewerModal, setShowViewerModal] = useState<boolean>(false);
   const [selectedFile, setSelectedFile] = useState<AppFile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [showFilters, setShowFilters] = useState<boolean>(false);
-  const [uploading, setUploading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [totalFiles, setTotalFiles] = useState<number>(0);
 
   // Состояние фильтров из URL
   const [filters, setFilters] = useState<FilterState>(() => {
@@ -70,28 +67,45 @@ const EvidenceStorage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      // Используем серверную фильтрацию
+      
+      // Формируем параметры для серверной фильтрации
       const params: any = {
         investigation_id: parseInt(boardId),
         page: filters.page,
         limit: filters.limit,
       };
       
-      if (filters.searchQuery) params.search = filters.searchQuery;
-      if (filters.trustLevel) params.trust_level = filters.trustLevel;
-      if (filters.fileType) params.file_type = filters.fileType;
-      if (filters.dateFrom) params.date_from = filters.dateFrom;
-      if (filters.dateTo) params.date_to = filters.dateTo;
-      if (filters.sortBy) params.sort_by = filters.sortBy;
+      if (filters.searchQuery && filters.searchQuery.trim()) {
+        params.search = filters.searchQuery.trim();
+      }
+      if (filters.trustLevel) {
+        params.trust_level = filters.trustLevel;
+      }
+      if (filters.fileType) {
+        params.file_type = filters.fileType;
+      }
+      if (filters.dateFrom) {
+        params.date_from = filters.dateFrom;
+      }
+      if (filters.dateTo) {
+        params.date_to = filters.dateTo;
+      }
+      if (filters.sortBy) {
+        params.sort_by = filters.sortBy;
+      }
+      
+      console.log('📤 Загрузка файлов с параметрами:', params);
       
       const response = await apiService.getFilesWithFilters(params);
-      setAllFiles(response.items);
-      setFilteredFiles(response.items);
       
-      // Обновляем общее количество страниц
-      const totalPages = Math.ceil(response.total / ITEMS_PER_PAGE);
-      if (filters.page > totalPages && totalPages > 0) {
-        setFilters(prev => ({ ...prev, page: totalPages }));
+      console.log('📥 Получено файлов:', response.items.length, 'Всего:', response.total);
+      
+      setAllFiles(response.items);
+      setTotalFiles(response.total);
+      
+      // Если текущая страница больше общего количества страниц, переходим на последнюю
+      if (response.pages > 0 && filters.page > response.pages) {
+        setFilters(prev => ({ ...prev, page: response.pages }));
       }
     } catch (error) {
       console.error('Ошибка загрузки файлов:', error);
@@ -104,9 +118,14 @@ const EvidenceStorage: React.FC = () => {
   useEffect(() => {
     if (boardId) {
       loadInvestigationData();
+    }
+  }, [boardId, loadInvestigationData]);
+
+  useEffect(() => {
+    if (boardId) {
       loadFiles();
     }
-  }, [boardId, loadInvestigationData, loadFiles]);
+  }, [boardId, loadFiles]);
 
   // Обновление URL при изменении фильтров
   useEffect(() => {
@@ -119,7 +138,8 @@ const EvidenceStorage: React.FC = () => {
     if (filters.sortBy !== 'date_desc') params.set('sort', filters.sortBy);
     if (filters.page > 1) params.set('page', filters.page.toString());
     
-    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+    const newUrl = `${location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+    navigate(newUrl, { replace: true });
   }, [filters, navigate, location.pathname]);
 
   const updateFilter = <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
@@ -145,8 +165,7 @@ const EvidenceStorage: React.FC = () => {
   };
 
   const handleUploadSuccess = (newFile: AppFile) => {
-    setAllFiles(prev => [newFile, ...prev]);
-    loadFiles(); // Перезагружаем для обновления фильтров
+    loadFiles();
     setShowUploadModal(false);
   };
 
@@ -155,26 +174,26 @@ const EvidenceStorage: React.FC = () => {
     
     try {
       await apiService.deleteFile(fileId);
-      loadFiles(); // Перезагружаем список
+      loadFiles();
     } catch (error) {
       console.error('Ошибка удаления файла:', error);
       setError('Не удалось удалить файл');
     }
   };
 
-  const handleViewFile = (file: AppFile) => {
-    setSelectedFile(file);
-    setShowViewerModal(true);
+  // Прямое скачивание файла через window.open
+  const handleDownloadFile = (file: AppFile) => {
+    const downloadUrl = `http://localhost:8000/files/download/${file.id}`;
+    console.log('📥 Скачивание файла:', downloadUrl);
+    window.open(downloadUrl, '_blank');
   };
 
-  const handleDownloadFile = async (file: AppFile) => {
-    try {
-      const url = await apiService.getDownloadUrl(file.id);
-      window.open(url, '_blank');
-    } catch (error) {
-      console.error('Ошибка скачивания:', error);
-      setError('Не удалось скачать файл');
-    }
+  // Просмотр файла
+  const handleViewFile = (file: AppFile) => {
+      // Для остальных показываем модальное окно
+      setSelectedFile(file);
+      setShowViewerModal(true);
+    
   };
 
   const getTrustLevelLabel = (level: string | null | undefined) => {
@@ -195,12 +214,7 @@ const EvidenceStorage: React.FC = () => {
     }
   };
 
-  // Пагинация
-  const totalPages = Math.ceil(allFiles.length / ITEMS_PER_PAGE);
-  const paginatedFiles = allFiles.slice(
-    (filters.page - 1) * ITEMS_PER_PAGE,
-    filters.page * ITEMS_PER_PAGE
-  );
+  const totalPages = Math.ceil(totalFiles / ITEMS_PER_PAGE);
 
   if (loading && allFiles.length === 0) {
     return (
@@ -250,7 +264,6 @@ const EvidenceStorage: React.FC = () => {
           </div>
         </div>
 
-        {/* Ошибка */}
         {error && (
           <div className="mx-6 mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
             {error}
@@ -258,7 +271,6 @@ const EvidenceStorage: React.FC = () => {
           </div>
         )}
 
-        {/* Панель фильтров */}
         {showFilters && (
           <div className="p-6 bg-white border-b border-gray-200 shadow-sm">
             <div className="flex justify-between items-center mb-4">
@@ -273,7 +285,6 @@ const EvidenceStorage: React.FC = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Поиск по названию */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Поиск по названию
@@ -290,7 +301,6 @@ const EvidenceStorage: React.FC = () => {
                 </div>
               </div>
               
-              {/* Фильтр по типу файла */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Тип файла
@@ -308,7 +318,6 @@ const EvidenceStorage: React.FC = () => {
                 </select>
               </div>
               
-              {/* Фильтр по уровню доверия */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Уровень доверия
@@ -325,7 +334,6 @@ const EvidenceStorage: React.FC = () => {
                 </select>
               </div>
               
-              {/* Фильтр по дате от */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Дата от
@@ -338,7 +346,6 @@ const EvidenceStorage: React.FC = () => {
                 />
               </div>
               
-              {/* Фильтр по дате до */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Дата до
@@ -351,7 +358,6 @@ const EvidenceStorage: React.FC = () => {
                 />
               </div>
               
-              {/* Сортировка */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Сортировка
@@ -365,15 +371,14 @@ const EvidenceStorage: React.FC = () => {
                   <option value="date_asc">Сначала старые</option>
                   <option value="name_asc">По названию (А-Я)</option>
                   <option value="name_desc">По названию (Я-А)</option>
-                  <option value="trust_desc">По доверию (низкий → высокий</option>
-                  <option value="trust_asc">По доверию (высокий → низкий)</option>
+                  <option value="trust_desc">По доверию (высокий → низкий)</option>
+                  <option value="trust_asc">По доверию (низкий → высокий)</option>
                   <option value="size_desc">По размеру (большие → малые)</option>
                   <option value="size_asc">По размеру (малые → большие)</option>
                 </select>
               </div>
             </div>
             
-            {/* Активные фильтры */}
             {(filters.searchQuery || filters.trustLevel || filters.fileType || filters.dateFrom || filters.dateTo) && (
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <div className="flex flex-wrap gap-2">
@@ -381,41 +386,31 @@ const EvidenceStorage: React.FC = () => {
                   {filters.searchQuery && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
                       Поиск: {filters.searchQuery}
-                      <button onClick={() => updateFilter('searchQuery', '')} className="hover:text-blue-600">
-                        ×
-                      </button>
+                      <button onClick={() => updateFilter('searchQuery', '')} className="hover:text-blue-600">×</button>
                     </span>
                   )}
                   {filters.fileType && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
                       Тип: {getFileTypeLabel(filters.fileType)}
-                      <button onClick={() => updateFilter('fileType', null)} className="hover:text-blue-600">
-                        ×
-                      </button>
+                      <button onClick={() => updateFilter('fileType', null)} className="hover:text-blue-600">×</button>
                     </span>
                   )}
                   {filters.trustLevel && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
                       Доверие: {getTrustLevelLabel(filters.trustLevel)}
-                      <button onClick={() => updateFilter('trustLevel', null)} className="hover:text-blue-600">
-                        ×
-                      </button>
+                      <button onClick={() => updateFilter('trustLevel', null)} className="hover:text-blue-600">×</button>
                     </span>
                   )}
                   {filters.dateFrom && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
                       От: {new Date(filters.dateFrom).toLocaleDateString()}
-                      <button onClick={() => updateFilter('dateFrom', '')} className="hover:text-blue-600">
-                        ×
-                      </button>
+                      <button onClick={() => updateFilter('dateFrom', '')} className="hover:text-blue-600">×</button>
                     </span>
                   )}
                   {filters.dateTo && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
                       До: {new Date(filters.dateTo).toLocaleDateString()}
-                      <button onClick={() => updateFilter('dateTo', '')} className="hover:text-blue-600">
-                        ×
-                      </button>
+                      <button onClick={() => updateFilter('dateTo', '')} className="hover:text-blue-600">×</button>
                     </span>
                   )}
                 </div>
@@ -424,21 +419,19 @@ const EvidenceStorage: React.FC = () => {
           </div>
         )}
 
-        {/* Результаты */}
         <div className="p-6">
-          {/* Информация о количестве файлов */}
           <div className="mb-4 flex justify-between items-center">
             <div className="text-gray-600">
-              Найдено файлов: <span className="font-semibold">{allFiles.length}</span>
+              Найдено файлов: <span className="font-semibold">{totalFiles}</span>
             </div>
-            {allFiles.length > 0 && (
+            {totalFiles > 0 && (
               <div className="text-gray-500 text-sm">
                 Страница {filters.page} из {totalPages || 1}
               </div>
             )}
           </div>
           
-          {allFiles.length === 0 ? (
+          {totalFiles === 0 ? (
             <div className="text-center text-gray-600 py-12">
               <p className="text-lg mb-4">
                 {filters.searchQuery || filters.trustLevel || filters.fileType || filters.dateFrom || filters.dateTo
@@ -454,7 +447,7 @@ const EvidenceStorage: React.FC = () => {
           ) : (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {paginatedFiles.map(file => (
+                {allFiles.map(file => (
                   <EvidenceCard
                     key={file.id}
                     file={file}
@@ -465,7 +458,6 @@ const EvidenceStorage: React.FC = () => {
                 ))}
               </div>
               
-              {/* Пагинация */}
               {totalPages > 1 && (
                 <div className="flex justify-center gap-2 mt-8">
                   <button
