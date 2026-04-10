@@ -11,8 +11,10 @@ from api.note import router as notes_router
 from api.search import router as search_router
 from api.user import router as user_router
 from api.board import router as board_router
-from api.token import router as token_router  # Импортируем новый роутер
+from api.token import router as token_router 
 from datetime import datetime 
+from api.seo import router as seo_router
+from api.external_news import router as external_news_router
 
 # Создаем таблицы
 models.Base.metadata.create_all(bind=engine)
@@ -86,7 +88,7 @@ app.add_middleware(
 
 # Подключаем все роутеры
 app.include_router(auth_router)
-app.include_router(token_router)  # Важно: этот роутер должен быть перед остальными
+app.include_router(token_router)
 app.include_router(investigations_router)
 app.include_router(timelines_router)
 app.include_router(files_router)
@@ -94,6 +96,9 @@ app.include_router(search_router)
 app.include_router(notes_router)
 app.include_router(user_router)
 app.include_router(board_router)
+app.include_router(seo_router)
+app.include_router(external_news_router)
+
 
 @app.get("/")
 def read_root():

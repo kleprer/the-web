@@ -8,6 +8,8 @@ import ConnectionLine from '../components/ConnectionLine';
 import Navbar from '../components/Navbar';
 import { apiService } from '../services/api';
 import { Card, Text, Image, Connection, Investigation, BoardState } from '../types/index';
+import SEOMeta from '../components/SEOMeta';
+import ExternalNews from '../components/ExternalNews'
 
 const InvestigationBoard: React.FC = () => {
   const { boardId } = useParams<{ boardId: string }>();
@@ -36,10 +38,10 @@ const InvestigationBoard: React.FC = () => {
   const [lastSaveTime, setLastSaveTime] = useState<number>(0);
   
   const canvasRef = useRef<HTMLDivElement>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const needsSaveRef = useRef<boolean>(false);
 
-  // Загрузка данных доски
+  // загрузка данных доски
   const loadInvestigationData = useCallback(async (): Promise<void> => {
     if (!boardId) return;
     try {
@@ -54,7 +56,7 @@ const InvestigationBoard: React.FC = () => {
       setImages(boardData.images || []);
       setConnections(boardData.connections || []);
     } catch (error) {
-      console.error('Ошибка загрузки данных доски:', error);
+      console.error('ошибка загрузки данных доски:', error);
     }
   }, [boardId]);
 
@@ -80,11 +82,11 @@ const InvestigationBoard: React.FC = () => {
           };
 
           await apiService.saveBoardState(parseInt(boardId!), boardData);
-          console.log('Состояние доски сохранено');
+          console.log('состояние доски сохранено');
           setLastSaveTime(Date.now());
           needsSaveRef.current = false;
         } catch (error) {
-          console.error('Ошибка сохранения состояния доски:', error);
+          console.error('ошибка сохранения состояния доски:', error);
         }
       }
     }, 1000); 
@@ -144,15 +146,15 @@ const InvestigationBoard: React.FC = () => {
   }, [getAllElements]);
 
   const createConnection = (startElement: any, endElement: any): Connection | null => {
-    console.log('🔄 Создание соединения между:', startElement.id, 'и', endElement.id);
+    console.log('🔄 создание соединения между:', startElement.id, 'и', endElement.id);
     
     if (!startElement || !endElement) {
-      console.log('Один из элементов не найден');
+      console.log('один из элементов не найден');
       return null;
     }
 
     if (startElement.id === endElement.id) {
-      console.log('Нельзя соединить элемент с самим собой');
+      console.log('нельзя соединить элемент с самим собой');
       return null;
     }
 
@@ -162,7 +164,7 @@ const InvestigationBoard: React.FC = () => {
     );
 
     if (connectionExists) {
-      console.log('Соединение уже существует');
+      console.log('соединение уже существует');
       return null;
     }
 
@@ -178,7 +180,7 @@ const InvestigationBoard: React.FC = () => {
       }
     };
 
-    console.log('✅ СОЕДИНЕНИЕ СОЗДАНО!', newConnection);
+    console.log('✅ соединение создано!', newConnection);
     markForSave();
     return newConnection;
   };
@@ -208,13 +210,13 @@ const InvestigationBoard: React.FC = () => {
     const clickX = e.clientX - rect.left - canvasOffset.x;
     const clickY = e.clientY - rect.top - canvasOffset.y;
 
-    console.log(' Клик в режиме соединения:', { clickX, clickY });
+    console.log('клик в режиме соединения:', { clickX, clickY });
     
     const element = findElementAtPoint(clickX, clickY);
-    console.log(' Найден элемент:', element ? `${element.type}:${element.id}` : 'null');
+    console.log('найден элемент:', element ? `${element.type}:${element.id}` : 'null');
 
     if (!element) {
-      console.log(' Клик по пустому месту, сбрасываем соединение');
+      console.log('клик по пустому месту, сбрасываем соединение');
       setConnectingStart(null);
       setTempConnectionEnd(null);
       setSelectedElements(new Set());
@@ -222,7 +224,7 @@ const InvestigationBoard: React.FC = () => {
     }
 
     if (!connectingStart) {
-      console.log(' Выбран ПЕРВЫЙ элемент:', element.id);
+      console.log('выбран первый элемент:', element.id);
       setConnectingStart({
         id: element.id,
         type: element.type,
@@ -230,7 +232,7 @@ const InvestigationBoard: React.FC = () => {
       });
       setSelectedElements(new Set([element.id]));
     } else {
-      console.log(' Выбран ВТОРОЙ элемент:', element.id);
+      console.log('выбран второй элемент:', element.id);
       
       const newConnection = createConnection(
         { id: connectingStart.id, type: connectingStart.type },
@@ -238,10 +240,10 @@ const InvestigationBoard: React.FC = () => {
       );
       
       if (newConnection) {
-        console.log(' Добавляем соединение в массив...');
+        console.log('добавляем соединение в массив...');
         setConnections(prev => {
           const newConnections = [...prev, newConnection];
-          console.log(' Новый массив соединений:', newConnections);
+          console.log('новый массив соединений:', newConnections);
           return newConnections;
         });
       }
@@ -256,7 +258,7 @@ const InvestigationBoard: React.FC = () => {
   }, [isConnecting, connectingStart, canvasOffset, editingElementId, findElementAtPoint, getElementCenter, createConnection]);
 
   const handleCanvasMouseDown = (e: React.MouseEvent): void => {
-    console.log('🖱️ MouseDown - режим соединения:', isConnecting);
+    console.log('🖱️ mousedown - режим соединения:', isConnecting);
     
     if (editingElementId) return;
 
@@ -456,7 +458,7 @@ const InvestigationBoard: React.FC = () => {
   const handleAddCard = (): void => {
     const newCard: Card = {
       id: `card-${Date.now()}`,
-      title: 'Новая карточка',
+      title: 'новая карточка',
       articleUrl: '',
       date: new Date().toISOString().split('T')[0],
       trustLevel: 'unknown',
@@ -470,7 +472,7 @@ const InvestigationBoard: React.FC = () => {
   const handleAddText = (): void => {
     const newText: Text = {
       id: `text-${Date.now()}`,
-      content: 'Новый текст',
+      content: 'новый текст',
       position: { x: 100, y: 150 }
     };
     setTexts(prev => [...prev, newText]);
@@ -480,7 +482,7 @@ const InvestigationBoard: React.FC = () => {
 
   const handleConnect = (): void => {
     const newConnectingState = !isConnecting;
-    console.log('🔗 Переключение режима соединения:', newConnectingState);
+    console.log('🔗 переключение режима соединения:', newConnectingState);
     setIsConnecting(newConnectingState);
     setIsMovingCanvas(false);
     setIsSelecting(false);
@@ -509,7 +511,7 @@ const InvestigationBoard: React.FC = () => {
           setImages(prev => [...prev, newImage]);
           markForSave();
         } catch (error) {
-          console.error('Ошибка загрузки изображения:', error);
+          console.error('ошибка загрузки изображения:', error);
         }
       }
     };
@@ -604,153 +606,172 @@ const InvestigationBoard: React.FC = () => {
     return 'default';
   };
 
+  // seo-метаданные для страницы
+  const pageTitle = investigation?.title || 'доска расследования';
+  const pageDescription = investigation?.description || 'визуальная доска для связей между фактами, событиями и доказательствами в журналистском расследовании';
+
   return (
-    <div className="relative w-full h-screen bg-[#151516] overflow-hidden">
-      <Navbar 
-        currentBoardName={investigation?.title || `Доска ${boardId}`} 
+    <>
+      <SEOMeta
+        title={pageTitle}
+        description={pageDescription}
+        canonicalUrl={`/board/${boardId}`}
+        type="article"
+        publishedTime={investigation?.created_at}
       />
-      
-      <div
-        ref={canvasRef}
-        className="absolute inset-0"
-        style={{
-          transform: `translate(${canvasOffset.x}px, ${canvasOffset.y}px)`,
-          width: '5000px',
-          height: '5000px',
-          backgroundColor: '#151516',
-          cursor: getCanvasCursor()
-        }}
-        onMouseDown={handleCanvasMouseDown}
-      >
-        {selectionRect && (
-          <div
-            className="absolute border-2 border-blue-400 bg-blue-400 bg-opacity-20"
-            style={{
-              left: selectionRect.x,
-              top: selectionRect.y,
-              width: selectionRect.width,
-              height: selectionRect.height
-            }}
-          />
-        )}
 
-        {isConnecting && connectingStart && tempConnectionEnd && (
-          <ConnectionLine
-            start={tempConnectionEnd.start}
-            end={tempConnectionEnd.end}
-            isTemp={true}
-          />
-        )}
+      <div className="relative w-full h-screen bg-[#151516] overflow-hidden">
+        <Navbar 
+          currentBoardName={investigation?.title || `доска ${boardId}`} 
+        />
+        
+        <div
+          ref={canvasRef}
+          className="absolute inset-0"
+          style={{
+            transform: `translate(${canvasOffset.x}px, ${canvasOffset.y}px)`,
+            width: '5000px',
+            height: '5000px',
+            backgroundColor: '#151516',
+            cursor: getCanvasCursor()
+          }}
+          onMouseDown={handleCanvasMouseDown}
+        >
+          {selectionRect && (
+            <div
+              className="absolute border-2 border-blue-400 bg-blue-400 bg-opacity-20"
+              style={{
+                left: selectionRect.x,
+                top: selectionRect.y,
+                width: selectionRect.width,
+                height: selectionRect.height
+              }}
+            />
+          )}
 
-        {connections.map(connection => {
-          const positions = getConnectionPositions(connection);
-          if (!positions) return null;
-          
-          return (
+          {isConnecting && connectingStart && tempConnectionEnd && (
             <ConnectionLine
-              key={connection.id}
-              start={positions.start}
-              end={positions.end}
-              isTemp={false}
+              start={tempConnectionEnd.start}
+              end={tempConnectionEnd.end}
+              isTemp={true}
             />
-          );
-        })}
+          )}
 
-        {cards.map(card => (
-          <div 
-            key={card.id}
-            className={isConnecting ? "pointer-events-none" : ""}
-          >
-            <CaseCard
-              id={card.id}
-              title={card.title}
-              articleUrl={card.articleUrl}
-              date={card.date}
-              trustLevel={card.trustLevel}
-              position={card.position}
-              onEdit={handleCardEdit}
-              onEditStart={handleElementEditStart}
-              onEditEnd={handleElementEditEnd}
-              isEditMode={true}
-              isSelected={selectedElements.has(card.id)}
-              onSelect={handleElementSelect}
-              isEditing={editingElementId === card.id}
-            />
-          </div>
-        ))}
+          {connections.map(connection => {
+            const positions = getConnectionPositions(connection);
+            if (!positions) return null;
+            
+            return (
+              <ConnectionLine
+                key={connection.id}
+                start={positions.start}
+                end={positions.end}
+                isTemp={false}
+              />
+            );
+          })}
 
-        {texts.map(text => (
-          <div 
-            key={text.id}
-            className={isConnecting ? "pointer-events-none" : ""}
-          >
-            <DraggableText
-              id={text.id}
-              content={text.content}
-              position={text.position}
-              onEdit={handleTextEdit}
-              onEditStart={handleElementEditStart}
-              onEditEnd={handleElementEditEnd}
-              isEditMode={true}
-              isSelected={selectedElements.has(text.id)}
-              onSelect={handleElementSelect}
-              isEditing={editingElementId === text.id}
-            />
-          </div>
-        ))}
+          {cards.map(card => (
+            <div 
+              key={card.id}
+              className={isConnecting ? "pointer-events-none" : ""}
+            >
+              <CaseCard
+                id={card.id}
+                title={card.title}
+                articleUrl={card.articleUrl}
+                date={card.date}
+                trustLevel={card.trustLevel}
+                position={card.position}
+                onEdit={handleCardEdit}
+                onEditStart={handleElementEditStart}
+                onEditEnd={handleElementEditEnd}
+                isEditMode={true}
+                isSelected={selectedElements.has(card.id)}
+                onSelect={handleElementSelect}
+                isEditing={editingElementId === card.id}
+              />
+            </div>
+          ))}
 
-        {images.map(image => (
-          <div 
-            key={image.id}
-            className={isConnecting ? "pointer-events-none" : ""}
-          >
-            <DraggableImage
-              id={image.id}
-              url={image.url}
-              position={image.position}
-              onEdit={handleImageEdit}
-              isEditMode={true}
-              isSelected={selectedElements.has(image.id)}
-              isConnectingMode={isConnecting}
-              onSelect={handleElementSelect}
-            />
-          </div>
-        ))}
+          {texts.map(text => (
+            <div 
+              key={text.id}
+              className={isConnecting ? "pointer-events-none" : ""}
+            >
+              <DraggableText
+                id={text.id}
+                content={text.content}
+                position={text.position}
+                onEdit={handleTextEdit}
+                onEditStart={handleElementEditStart}
+                onEditEnd={handleElementEditEnd}
+                isEditMode={true}
+                isSelected={selectedElements.has(text.id)}
+                onSelect={handleElementSelect}
+                isEditing={editingElementId === text.id}
+              />
+            </div>
+          ))}
+
+          {images.map(image => (
+            <div 
+              key={image.id}
+              className={isConnecting ? "pointer-events-none" : ""}
+            >
+              <DraggableImage
+                id={image.id}
+                url={image.url}
+                position={image.position}
+                onEdit={handleImageEdit}
+                isEditMode={true}
+                isSelected={selectedElements.has(image.id)}
+                isConnectingMode={isConnecting}
+                onSelect={handleElementSelect}
+              />
+            </div>
+          ))}
+        </div>
+
+        <Toolbar
+          onSelectArea={handleSelectArea}
+          onMoveCanvas={handleMoveCanvas}
+          onAddCard={handleAddCard}
+          onAddText={handleAddText}
+          onConnect={handleConnect}
+          onAddPhoto={handleAddPhoto}
+          isMovingCanvas={isMovingCanvas}
+        />
+
+        <div className="fixed top-20 left-4 bg-black bg-opacity-70 text-white p-3 rounded-lg text-sm font-medium z-40">
+          <div>выбрано: <span className="text-blue-400">{selectedElements.size}</span></div>
+          <div>соединений: <span className="text-green-400">{connections.length}</span></div>
+          {lastSaveTime > 0 && (
+            <div className="text-gray-400 text-xs mt-1">
+              сохранено: {new Date(lastSaveTime).toLocaleTimeString()}
+            </div>
+          )}
+          {editingElementId && <div className="text-orange-400">• редактирование элемента</div>}
+          {isSelecting && <div className="text-green-400">• выделение</div>}
+          {isMovingCanvas && <div className="text-yellow-400">• перемещение канваса</div>}
+          {isConnecting && (
+            <div className="text-purple-400">
+              • соединение - {connectingStart ? 'выберите второй элемент' : 'выберите первый элемент'}
+            </div>
+          )}
+          {selectedElements.size > 0 && (
+            <div className="text-gray-400 text-xs mt-1">
+              перетаскивайте или используйте стрелки • delete для удаления
+            </div>
+          )}
+        </div>
+
+        {/* панель с внешними новостями (интеграция стороннего api) */}
+        <div className="fixed bottom-20 right-4 w-80 z-40">
+          <ExternalNews investigationTitle={investigation?.title} />
+        </div>
       </div>
-
-      <Toolbar
-        onSelectArea={handleSelectArea}
-        onMoveCanvas={handleMoveCanvas}
-        onAddCard={handleAddCard}
-        onAddText={handleAddText}
-        onConnect={handleConnect}
-        onAddPhoto={handleAddPhoto}
-        isMovingCanvas={isMovingCanvas}
-      />
-
-      <div className="fixed top-20 left-4 bg-black bg-opacity-70 text-white p-3 rounded-lg text-sm font-medium z-40">
-        <div>Выбрано: <span className="text-blue-400">{selectedElements.size}</span></div>
-        <div>Соединений: <span className="text-green-400">{connections.length}</span></div>
-        {lastSaveTime > 0 && (
-          <div className="text-gray-400 text-xs mt-1">
-            Сохранено: {new Date(lastSaveTime).toLocaleTimeString()}
-          </div>
-        )}
-        {editingElementId && <div className="text-orange-400">• Редактирование элемента</div>}
-        {isSelecting && <div className="text-green-400">• Выделение</div>}
-        {isMovingCanvas && <div className="text-yellow-400">• Перемещение канваса</div>}
-        {isConnecting && (
-          <div className="text-purple-400">
-            • Соединение - {connectingStart ? 'Выберите второй элемент' : 'Выберите первый элемент'}
-          </div>
-        )}
-        {selectedElements.size > 0 && (
-          <div className="text-gray-400 text-xs mt-1">
-            Перетаскивайте или используйте стрелки • Delete для удаления
-          </div>
-        )}
-      </div>
-    </div>
+    </>
   );
 };
 

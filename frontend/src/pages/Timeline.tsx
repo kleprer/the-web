@@ -7,6 +7,7 @@ import EditEventForm from '../components/EditEventForm';
 import Navbar from '../components/Navbar';
 import { apiService } from '../services/api';
 import { TimelineEvent as TimelineEventType, Investigation } from '../types/index';
+import SEOMeta from '../components/SEOMeta';
 
 const Timeline: React.FC = () => {
   const { boardId } = useParams<{ boardId: string }>();
@@ -27,7 +28,7 @@ const Timeline: React.FC = () => {
       const data = await apiService.getInvestigation(parseInt(boardId));
       setInvestigation(data);
     } catch (error) {
-      console.error('Ошибка загрузки расследования:', error);
+      console.error('ошибка загрузки расследования:', error);
     }
   }, [boardId]);
 
@@ -37,7 +38,7 @@ const Timeline: React.FC = () => {
       const eventsData = await apiService.getTimelineEvents(parseInt(boardId));
       setEvents(eventsData);
     } catch (error) {
-      console.error('Ошибка загрузки событий:', error);
+      console.error('ошибка загрузки событий:', error);
     } finally {
       setLoading(false);
     }
@@ -52,15 +53,15 @@ const Timeline: React.FC = () => {
 
   const handleAddEvent = async (newEventData: any): Promise<void> => {
     try {
-      console.log('🎯 Создание события с данными:', newEventData);
+      console.log('🎯 создание события с данными:', newEventData);
       const createdEvent = await apiService.createTimelineEvent(parseInt(boardId!), newEventData);
-      console.log(' Событие создано:', createdEvent);
+      console.log('событие создано:', createdEvent);
       
       setEvents(prev => [...prev, createdEvent].sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime()));
       setShowNewEventForm(false);
     } catch (error) {
-      console.error(' Ошибка создания события:', error);
-      alert('Ошибка создания события: ' + (error as Error).message);
+      console.error('ошибка создания события:', error);
+      alert('ошибка создания события: ' + (error as Error).message);
     }
   };
 
@@ -74,7 +75,7 @@ const Timeline: React.FC = () => {
       );
       setEditingEvent(null);
     } catch (error) {
-      console.error('Ошибка обновления события:', error);
+      console.error('ошибка обновления события:', error);
     }
   };
 
@@ -83,7 +84,7 @@ const Timeline: React.FC = () => {
       await apiService.deleteTimelineEvent(eventId);
       setEvents(prev => prev.filter(event => event.id !== eventId));
     } catch (error) {
-      console.error('Ошибка удаления события:', error);
+      console.error('ошибка удаления события:', error);
     }
   };
 
@@ -125,65 +126,75 @@ const Timeline: React.FC = () => {
       <div className="min-h-screen bg-[#151516] text-white">
         <Navbar currentBoardName={investigation?.title} />
         <div className="container mx-auto px-8 mt-6 text-center">
-          Загрузка...
+          загрузка...
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#151516] text-white">
-      <Navbar currentBoardName={investigation?.title} />
+    <>
+      <SEOMeta
+        title={`таймлайн - ${investigation?.title || 'расследование'}`}
+        description={`хронология событий для расследования ${investigation?.title || ''}: даты, факты, последовательность событий`}
+        canonicalUrl={`/timeline/${boardId}`}
+        type="article"
+        publishedTime={investigation?.created_at}
+      />
 
-      <div className="container mx-auto px-8 mt-6">
-        <button
-          onClick={() => setShowNewEventForm(true)}
-          className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors mb-8"
-        >
-          <PlusOutlined className="text-lg" />
-          <span className="text-lg">Добавить событие</span>
-        </button>
-      </div>
+      <div className="min-h-screen bg-[#151516] text-white">
+        <Navbar currentBoardName={investigation?.title} />
 
-      <div 
-        className="relative h-96 overflow-hidden cursor-grab active:cursor-grabbing"
-        onMouseDown={handleTimelineMouseDown}
-      >
-        <div
-          ref={timelineRef}
-          className="absolute top-1/2 left-1/3 right-0 h-0.5 bg-white transform -translate-y-1/2"
-          style={{
-            transform: `translateX(${timelinePosition}px) translateY(-50%)`,
-            minWidth: Math.max(2000, events.length * 300)
-          }}
-        >
-          {events.map((event, index) => (
-            <TimelineEvent
-              key={event.id}
-              event={event}
-              position={index * 300}
-              onEdit={handleEditEvent}
-              onDelete={handleDeleteEvent}
-            />
-          ))}
+        <div className="container mx-auto px-8 mt-6">
+          <button
+            onClick={() => setShowNewEventForm(true)}
+            className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors mb-8"
+          >
+            <PlusOutlined className="text-lg" />
+            <span className="text-lg">добавить событие</span>
+          </button>
         </div>
+
+        <div 
+          className="relative h-96 overflow-hidden cursor-grab active:cursor-grabbing"
+          onMouseDown={handleTimelineMouseDown}
+        >
+          <div
+            ref={timelineRef}
+            className="absolute top-1/2 left-1/3 right-0 h-0.5 bg-white transform -translate-y-1/2"
+            style={{
+              transform: `translateX(${timelinePosition}px) translateY(-50%)`,
+              minWidth: Math.max(2000, events.length * 300)
+            }}
+          >
+            {events.map((event, index) => (
+              <TimelineEvent
+                key={event.id}
+                event={event}
+                position={index * 300}
+                onEdit={handleEditEvent}
+                onDelete={handleDeleteEvent}
+              />
+            ))}
+          </div>
+        </div>
+
+        {showNewEventForm && (
+          <NewEventForm
+            onAddEvent={handleAddEvent}
+            onCancel={() => setShowNewEventForm(false)}
+          />
+        )}
+
+        {editingEvent && (
+          <EditEventForm
+            event={editingEvent}
+            onUpdate={handleUpdateEvent}
+            onCancel={() => setEditingEvent(null)}
+          />
+        )}
       </div>
-
-      {showNewEventForm && (
-        <NewEventForm
-          onAddEvent={handleAddEvent}
-          onCancel={() => setShowNewEventForm(false)}
-        />
-      )}
-
-      {editingEvent && (
-        <EditEventForm
-          event={editingEvent}
-          onUpdate={handleUpdateEvent}
-          onCancel={() => setEditingEvent(null)}
-        />
-      )}
-    </div>
+    </>
   );
 };
 

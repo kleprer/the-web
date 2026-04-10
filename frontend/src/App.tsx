@@ -8,7 +8,8 @@ import Timeline from './pages/Timeline';
 import EvidenceStorage from './pages/EvidenceStorage';
 import AdminPanel from './pages/AdminPanel';
 import { WithRole } from './components/WithPermission';
-import './App.css';
+import { HelmetProvider } from 'react-helmet-async';
+import './App.css'
 
 // Компонент для перенаправления
 const AppRoutes: React.FC = () => {
@@ -107,14 +108,17 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <Router>
-        <div className="App bg-[#151516] min-h-screen">
-          <AppRoutes />
-        </div>
-      </Router>
-    </AuthProvider>
+    <HelmetProvider> {/* добавьте эту обертку */}
+      <AuthProvider>
+        <Router>
+          <div className="App bg-[#151516] min-h-screen">
+            <AppRoutes />
+          </div>
+        </Router>
+      </AuthProvider>
+    </HelmetProvider>
   );
 };
+
 
 export default App;

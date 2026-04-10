@@ -112,7 +112,6 @@ class Investigation(Base):
     is_archived = Column(Boolean, default=False)
     board_data = Column(JSON, nullable=True)  # { cards: [], texts: [], images: [], connections: [] }
 
-# Добавьте поле trust_level в модель File
 class File(Base):
     __tablename__ = "files"
     id = Column(Integer, primary_key=True, index=True)
@@ -120,9 +119,10 @@ class File(Base):
     
     # file info
     filename = Column(String)
-    file_path = Column(String)
-    file_type = Column(String)  # 'document', 'image', 'video', 'audio'
-    mime_type = Column(String)  # 'application/pdf', 'image/jpeg', etc.
+    file_path = Column(String)  # Может быть локальным путем или s3://...
+    s3_key = Column(String, nullable=True)  # Ключ в S3 (если используется облако)
+    file_type = Column(String)
+    mime_type = Column(String)
     file_size = Column(Integer)
     uploaded_at = Column(DateTime)
     
@@ -130,11 +130,11 @@ class File(Base):
     title = Column(String)
     description = Column(Text)
     tags = Column(JSON)
-    trust_level = Column(String, default="unknown")  # 'high', 'unknown', 'low'
+    trust_level = Column(String, default="unknown")
     
     # ownership
     uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-
+    
 class TimelineEvent(Base):
     __tablename__ = "timeline_events"
     id = Column(Integer, primary_key=True, index=True)

@@ -450,6 +450,10 @@ async downloadFile(fileId: number): Promise<Blob> {
   async getUsersWithRoles(): Promise<any> {
     return this.request('/auth/users/roles');
   }
+
+  async getExternalNews(query: string): Promise<any> {
+  return this.request<any>(`/external/news?query=${encodeURIComponent(query)}`);
+}
 }
 
 export const apiService = new ApiService();
