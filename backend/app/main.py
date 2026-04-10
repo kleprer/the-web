@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from models import models
 from database import engine, get_db
@@ -14,7 +15,7 @@ from api.board import router as board_router
 from api.token import router as token_router 
 from datetime import datetime 
 from api.seo import router as seo_router
-from api.external_news import router as external_news_router
+from api.external import router as external_router
 
 # Создаем таблицы
 models.Base.metadata.create_all(bind=engine)
@@ -97,8 +98,60 @@ app.include_router(notes_router)
 app.include_router(user_router)
 app.include_router(board_router)
 app.include_router(seo_router)
-app.include_router(external_news_router)
+app.include_router(external_router)
 
+@app.get("/sitemap.xml", response_class=Response)
+async def sitemap_xml():
+    """
+    sitemap.xml - карта сайта для поисковых систем
+    """
+    base_url = "http://localhost:3000"
+    current_date = datetime.now().date().isoformat()
+    
+    # правильный xml
+    sitemap_xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>{base_url}/</loc>
+    <lastmod>{current_date}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>{base_url}/auth</loc>
+    <lastmod>{current_date}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>{base_url}/boards</loc>
+    <lastmod>{current_date}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>"""
+    
+    return Response(content=sitemap_xml_content, media_type="application/xml")
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def robots_txt():
+    return """User-agent: *
+Allow: /$
+Allow: /auth
+Allow: /boards
+Allow: /board/
+Allow: /timeline/
+Allow: /evidence/
+
+Disallow: /admin/
+Disallow: /api/
+Disallow: /docs
+Disallow: /redoc
+Disallow: /openapi.json
+Disallow: /health
+
+Sitemap: http://localhost:8000/sitemap.xml
+"""
 
 @app.get("/")
 def read_root():
