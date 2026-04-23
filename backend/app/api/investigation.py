@@ -14,6 +14,7 @@ def create_investigation(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Создать новое расследование"""
     initial_board_data = {
         "cards": [],
         "texts": [],
@@ -23,11 +24,12 @@ def create_investigation(
     
     db_investigation = models.Investigation(
         title=investigation_data.title,
-        description=investigation_data.description,
+        description=investigation_data.description or "",
         created_at=datetime.now(),
         updated_at=datetime.now(),
         user_id=current_user.id,
-        board_data=initial_board_data
+        board_data=initial_board_data,
+        is_archived=False
     )
     
     db.add(db_investigation)
@@ -41,11 +43,12 @@ def list_investigations(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    investigations = db.query(models.Investigation).filter(
+    """Получить все расследования текущего пользователя"""
+    investigations_list = db.query(models.Investigation).filter(
         models.Investigation.user_id == current_user.id,
         models.Investigation.is_archived == False
     ).all()
-    return investigations
+    return investigations_list
 
 @router.get("/{investigation_id}", response_model=investigation.InvestigationResponse)
 def get_investigation(
@@ -53,6 +56,7 @@ def get_investigation(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Получить расследование по ID"""
     investigation_item = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id,
         models.Investigation.user_id == current_user.id
@@ -70,6 +74,7 @@ def update_investigation(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Обновить расследование"""
     db_investigation = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id,
         models.Investigation.user_id == current_user.id
@@ -78,9 +83,9 @@ def update_investigation(
     if not db_investigation:
         raise HTTPException(status_code=404, detail="Investigation not found")
     
-    if investigation_data.title:
+    if investigation_data.title is not None:
         db_investigation.title = investigation_data.title
-    if investigation_data.description:
+    if investigation_data.description is not None:
         db_investigation.description = investigation_data.description
     
     db_investigation.updated_at = datetime.now()
@@ -95,6 +100,7 @@ def delete_investigation(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Удалить расследование"""
     investigation_item = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id,
         models.Investigation.user_id == current_user.id
@@ -114,6 +120,7 @@ def archive_investigation(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Архивировать расследование"""
     investigation_item = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id,
         models.Investigation.user_id == current_user.id
@@ -133,6 +140,7 @@ def restore_investigation(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Восстановить расследование из архива"""
     investigation_item = db.query(models.Investigation).filter(
         models.Investigation.id == investigation_id,
         models.Investigation.user_id == current_user.id
