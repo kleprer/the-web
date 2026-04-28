@@ -22,7 +22,8 @@ RUN pip install --no-cache-dir \
     httpx \
     minio \
     email-validator \
-    typing_extensions
+    typing_extensions \
+    click
 
 COPY . .
 
