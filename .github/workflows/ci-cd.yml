@@ -54,28 +54,30 @@ jobs:
         echo "MINIO_ROOT_PASSWORD=minioadmin123" >> .env
         echo "SECRET_KEY=test-secret-key-please-change" >> .env
     
+    - name: Clean old volumes
+      run: |
+        docker compose down -v || true
+        docker system prune -f || true
+    
     - name: Build Docker images
       run: docker compose build
     
     - name: Start services
-      run: docker compose up -d
+      run: |
+        docker compose down -v
+        docker compose build
+        docker compose up -d
     
     - name: Wait for services
-      run: sleep 20
+      run: sleep 30
     
-    - name: Show logs
+    - name: Show logs if failed
       if: failure()
       run: docker compose logs --tail=50
     
-    - name: Check backend health
-      continue-on-error: true
+    - name: Check backend is running
       run: |
-        curl -f http://localhost:8000/health || echo "Health endpoint not ready"
-    
-    - name: Check frontend
-      continue-on-error: true
-      run: |
-        curl -f http://localhost:3000 || echo "Frontend not ready"
+        curl -f http://localhost:8000/docs || exit 1
     
     - name: Stop services
       run: docker compose down

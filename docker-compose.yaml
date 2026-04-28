@@ -42,6 +42,11 @@ services:
     volumes:
       - ./backend:/app
       - backend_data:/app/uploads
+    command: >
+      sh -c "rm -f test.db && 
+             python -c 'from database import engine; from models.models import Base; Base.metadata.create_all(bind=engine)' && 
+             python create_admin.py && 
+             uvicorn main:app --host 0.0.0.0 --port 8000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
