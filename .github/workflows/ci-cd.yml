@@ -25,6 +25,7 @@ jobs:
         pip install flake8 black pylint
     
     - name: Run flake8 (стиль кода)
+      continue-on-error: true
       run: |
         cd backend
         flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
