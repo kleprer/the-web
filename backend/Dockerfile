@@ -29,6 +29,9 @@ COPY . .
 
 WORKDIR /app/app
 
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
 EXPOSE 8000
 
 CMD ["sh", "-c", "python -c 'from database import engine; from models.models import Base; Base.metadata.create_all(bind=engine)' && python create_admin.py && uvicorn main:app --host 0.0.0.0 --port 8000"]
