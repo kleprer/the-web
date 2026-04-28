@@ -153,6 +153,10 @@ Disallow: /health
 Sitemap: http://localhost:8000/sitemap.xml
 """
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
 @app.get("/")
 def read_root():
     return {
@@ -162,6 +166,3 @@ def read_root():
         "health": "/health"
     }
 
-@app.get("/health")
-def health_check():
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
