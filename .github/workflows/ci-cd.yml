@@ -44,7 +44,6 @@ jobs:
   # Этап 2: Сборка и тестирование (п. 5.1 и 5.2)
   test:
     runs-on: ubuntu-latest
-    needs: lint
     
     steps:
     - name: Checkout code
