@@ -1,5 +1,3 @@
-// frontend/src/__tests__/components/EvidenceCard.test.tsx
-// frontend/src/__tests__/components/EvidenceCard.test.tsx
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import EvidenceCard from '../../components/EvidenceCard';

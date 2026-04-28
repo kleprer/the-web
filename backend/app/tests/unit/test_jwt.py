@@ -1,5 +1,3 @@
-# backend/tests/unit/test_jwt.py - полностью исправленный
-
 import pytest
 from datetime import datetime, timedelta, timezone
 from jose import jwt
@@ -25,12 +23,10 @@ class TestJWT:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         assert "exp" in payload
         
-        # Используем timezone-aware datetime
         exp_time = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
         now = datetime.now(timezone.utc)
-        # Проверяем, что время истечения примерно через 5 минут (погрешность 10 секунд)
         time_diff = (exp_time - now).total_seconds()
-        assert 290 < time_diff < 310  # между 4:50 и 5:10
+        assert 290 < time_diff < 310
     
     def test_create_refresh_token(self):
         data = {"sub": "testuser"}
@@ -53,7 +49,6 @@ class TestJWT:
         assert payload is None
     
     def test_verify_expired_token(self):
-        # Создаем токен с истекшим сроком
         expired_time = datetime.now(timezone.utc) - timedelta(seconds=1)
         expired_data = {"sub": "testuser", "exp": expired_time.timestamp()}
         expired_token = jwt.encode(expired_data, settings.SECRET_KEY, algorithm=settings.ALGORITHM)

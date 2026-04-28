@@ -1,4 +1,3 @@
-// frontend/src/__tests__/components/Navbar.test.tsx
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
@@ -13,7 +12,6 @@ jest.mock('../../services/api', () => ({
   },
 }));
 
-// Мокаем react-router-dom хуки
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -21,7 +19,6 @@ jest.mock('react-router-dom', () => ({
   useParams: () => ({ boardId: '1' }),
 }));
 
-// Устанавливаем токен в localStorage перед тестами
 beforeEach(() => {
   jest.clearAllMocks();
   localStorage.clear();

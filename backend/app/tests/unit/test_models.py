@@ -1,4 +1,3 @@
-# backend/tests/unit/test_models.py
 import pytest
 from datetime import datetime
 from models import models

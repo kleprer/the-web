@@ -46,7 +46,7 @@ class TestUserModel:
         hash2 = models.User.get_sha256_hash(password)
         
         assert hash1 == hash2
-        assert len(hash1) == 64  # SHA256 produces 64 hex chars
+        assert len(hash1) == 64
     
     def test_role_permissions_admin(self, db_session):
         """Тест прав администратора"""

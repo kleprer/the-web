@@ -2,7 +2,6 @@ import sys
 import os
 from pathlib import Path
 
-# Добавляем корневую директорию в PYTHONPATH
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
@@ -13,12 +12,10 @@ from sqlalchemy.pool import StaticPool
 from datetime import datetime
 import asyncio
 
-# Импорты из проекта
 from database import Base, get_db
 from main import app
 from models import models
 
-# Тестовая БД в памяти
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
 @pytest.fixture(scope="function")
@@ -83,13 +80,10 @@ def test_investigation_data():
 @pytest.fixture
 def auth_headers(client, test_user_data):
     """Заголовки авторизации для обычного пользователя"""
-    # Создаем пользователя
     signup_response = client.post("/auth/signup", json=test_user_data)
     if signup_response.status_code != 200:
-        # Если пользователь уже существует, пробуем войти
         pass
     
-    # Логинимся
     response = client.post("/auth/login", json={
         "username": test_user_data["username"],
         "password": test_user_data["password"]
@@ -102,7 +96,6 @@ def auth_headers(client, test_user_data):
 @pytest.fixture
 def admin_auth_headers(client, db_session):
     """Заголовки авторизации для админа"""
-    # Создаем админа напрямую в БД
     admin = models.User(
         username="testadmin",
         email="admin@test.com",
@@ -114,7 +107,6 @@ def admin_auth_headers(client, db_session):
     db_session.add(admin)
     db_session.commit()
     
-    # Логинимся через API
     response = client.post("/auth/login", json={
         "username": "testadmin",
         "password": "adminpass123"
@@ -155,7 +147,6 @@ def mock_news_api(monkeypatch):
     async def mock_get_news(*args, **kwargs):
         return await MockNewsAPI().get_news_by_keyword(kwargs.get('query', 'test'))
     
-    # Мокаем эндпоинт напрямую
     from api import external
     monkeypatch.setattr(external, "get_news_for_investigation", mock_get_news)
     
@@ -184,7 +175,6 @@ def mock_s3_service(monkeypatch):
     
     mock_service = MockS3Service()
     
-    # Мокаем s3_service в модуле files
     try:
         from api import files
         monkeypatch.setattr(files, "s3_service", mock_service)

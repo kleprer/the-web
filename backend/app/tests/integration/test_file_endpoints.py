@@ -1,5 +1,3 @@
-# backend/tests/integration/test_file_endpoints.py - исправленный тест
-
 import pytest
 from io import BytesIO
 

@@ -11,8 +11,7 @@ class TestExternalAPI:
         
         assert response.status_code == 200
         data = response.json()
-        # Может быть success True или False в зависимости от конфигурации
-        # Проверяем, что структура ответа корректна
+        
         assert "articles" in data
         assert "success" in data
     
@@ -21,7 +20,6 @@ class TestExternalAPI:
         """Тест получения новостей без API ключа"""
         monkeypatch.setenv("NEWS_API_KEY", "")
         
-        # Перезагружаем модуль, чтобы применить новые настройки
         import importlib
         import api.external
         importlib.reload(api.external)
@@ -30,7 +28,6 @@ class TestExternalAPI:
         
         assert response.status_code == 200
         data = response.json()
-        # Проверяем, что ответ содержит информацию об ошибке или успехе
         assert "articles" in data
     
     @pytest.mark.asyncio
@@ -63,5 +60,4 @@ class TestExternalAPI:
         
         assert response.status_code == 200
         data = response.json()
-        # Должна быть graceful degradation
         assert "articles" in data

@@ -1,12 +1,9 @@
-// frontend/src/__tests__/e2e/user-flows.test.ts
 import { apiService } from '../../services/api';
 
-// Мокаем fetch для реального тестирования API
 const originalFetch = global.fetch;
 
 describe('E2E User Flows (API Integration)', () => {
   beforeAll(() => {
-    // Сетапим мок для fetch
     global.fetch = jest.fn();
   });
 
@@ -20,7 +17,6 @@ describe('E2E User Flows (API Integration)', () => {
   });
 
   it('should perform complete auth flow', async () => {
-    // Мок ответа на регистрацию
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -41,11 +37,9 @@ describe('E2E User Flows (API Integration)', () => {
   });
 
   it('should create and manage investigation', async () => {
-    // Устанавливаем токен
     localStorage.setItem('access_token', 'test-token');
     apiService.setTokens('test-token', 'test-refresh');
     
-    // Мок создания расследования
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -71,7 +65,6 @@ describe('E2E User Flows (API Integration)', () => {
     localStorage.setItem('access_token', 'test-token');
     apiService.setTokens('test-token', 'test-refresh');
     
-    // Мок загрузки файла
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => ({

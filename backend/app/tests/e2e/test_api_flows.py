@@ -1,5 +1,3 @@
-# backend/tests/e2e/test_api_flows.py - полностью исправленный файл
-
 import pytest
 from datetime import datetime
 
