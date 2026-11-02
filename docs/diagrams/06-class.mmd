@@ -1,0 +1,41 @@
+classDiagram
+  class User {
+    +int id
+    +string username
+    +string email
+    +string[] roles
+    +bool is_active
+  }
+  class Investigation {
+    +int id
+    +string title
+    +string description
+    +bool is_archived
+    +json board_data
+    +datetime created_at
+  }
+  class File {
+    +int id
+    +string filename
+    +string title
+    +string trust_level
+    +string s3_key
+    +datetime uploaded_at
+  }
+  class TimelineEvent {
+    +int id
+    +string title
+    +string description
+    +datetime event_date
+  }
+  class Note {
+    +int id
+    +string title
+    +string content
+    +datetime created_at
+  }
+  User "1" --> "0..*" Investigation : ведёт
+  Investigation "1" *-- "0..*" File : содержит
+  Investigation "1" *-- "0..*" TimelineEvent : содержит
+  Investigation "1" *-- "0..*" Note : содержит
+  User "1" --> "0..*" File : загрузил
