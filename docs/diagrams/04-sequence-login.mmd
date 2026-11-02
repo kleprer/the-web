@@ -1,0 +1,17 @@
+sequenceDiagram
+  actor U as Пользователь
+  participant FE as Frontend (AuthForm)
+  participant BE as Backend POST /auth/login
+  participant DB as SQLite
+  U->>FE: логин и пароль
+  FE->>BE: {username, password}
+  BE->>DB: найти пользователя по username
+  DB-->>BE: запись или пусто
+  alt пользователь не найден или пароль неверный
+    BE-->>FE: 401 «Неправильное имя пользователя или пароль»
+    FE-->>U: сообщение об ошибке, остаёмся на форме входа
+  else данные верны
+    BE-->>FE: 200 {access_token, refresh_token, user_id, roles}
+    FE->>FE: сохранить токены и пользователя
+    FE-->>U: страница выбора расследования /boards
+  end

@@ -1,0 +1,21 @@
+sequenceDiagram
+  actor U as Журналист
+  participant FE as Frontend (NewEventForm)
+  participant BE as Backend POST /timelines/{id}/events
+  participant DB as SQLite
+  U->>FE: дата и название события
+  alt название или дата пустые
+    FE-->>U: «Заполните обязательные поля: дата и название»
+    Note over FE,BE: запрос на сервер не отправляется, событие не создаётся
+  else поля заполнены
+    FE->>BE: {title, description, event_date} + JWT
+    BE->>DB: расследование принадлежит пользователю?
+    alt чужое или несуществующее расследование
+      BE-->>FE: 404 «Investigation not found»
+      FE-->>U: сообщение «ошибка создания события», хронология без изменений
+    else расследование найдено
+      BE->>DB: сохранить событие
+      BE-->>FE: 200 созданное событие
+      FE-->>U: событие в хронологии, отсортировано по дате
+    end
+  end
