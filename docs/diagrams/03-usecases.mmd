@@ -1,8 +1,8 @@
 flowchart LR
-  V(["Посетитель"])
-  J(["Журналист"])
-  E(["Редактор"])
-  A(["Администратор"])
+  V["Посетитель"]
+  J["Журналист"]
+  E["Редактор"]
+  A["Администратор"]
   subgraph SYS["Journalist Assistant"]
     UC9(["Зарегистрироваться — FR-9"])
     UC1(["Войти — FR-1"])
@@ -28,3 +28,5 @@ flowchart LR
   E --- UC8
   E -. "наследует возможности журналиста" .-> J
   A -. "наследует возможности редактора" .-> E
+  classDef actor fill:#fff3cd,stroke:#b8860b,stroke-width:2px
+  class V,J,E,A actor
