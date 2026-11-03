@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   minio:
-    image: minio/minio:latest
+    build: ./minio
     container_name: journalist_minio
     command: server /data --console-address ":9001"
     environment:
@@ -43,9 +41,8 @@ services:
       - ./backend:/app
       - backend_data:/app/uploads
     command: >
-      sh -c "rm -f test.db && 
-             python -c 'from database import engine; from models.models import Base; Base.metadata.create_all(bind=engine)' && 
-             python create_admin.py && 
+      sh -c "python -c 'from database import engine; from models.models import Base; Base.metadata.create_all(bind=engine)' &&
+             python create_admin.py &&
              uvicorn main:app --host 0.0.0.0 --port 8000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -87,7 +84,7 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
       interval: 30s
       timeout: 10s
       retries: 3

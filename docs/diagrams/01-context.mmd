@@ -1,0 +1,14 @@
+flowchart LR
+  J["Журналист (user)"]
+  E["Редактор (manager)"]
+  A["Администратор (admin)"]
+  subgraph SYS["Journalist Assistant — граница системы"]
+    NG["nginx"] --> FE["Frontend: React + TypeScript"]
+    FE -->|"REST + JWT"| BE["Backend: FastAPI"]
+    BE --> DB[("SQLite: пользователи, расследования, события, заметки, метаданные файлов")]
+  end
+  BE -->|"S3 API: файлы доказательств"| MN[("MinIO")]
+  BE -.->|"HTTP: новости по теме (нужен NEWS_API_KEY)"| NA["NewsAPI.org"]
+  J --> NG
+  E --> NG
+  A --> NG
