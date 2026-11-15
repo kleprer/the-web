@@ -1,0 +1,17 @@
+name: Lab 4 - PR trigger only
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  trigger-only:
+    name: Trigger only - tests not configured yet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report configured trigger
+        run: echo "PR trigger works. Lab 4 tests are not configured in this workflow yet."
