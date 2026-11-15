@@ -44,7 +44,7 @@ def test_create_investigation_without_title(api):
 
     response = client.post("/investigations/", json=payload)
 
-    assert response.status_code == 422
+    assert response.status_code == 400
     errors = response.json()["detail"]
     assert any(
         error["type"] == "missing" and error["loc"] == ["body", "title"]
