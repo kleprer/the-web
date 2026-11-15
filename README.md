@@ -44,7 +44,54 @@ Python 3.11, Node 18 (в образе frontend), Docker 24+, Docker Compose v2.
 
 ## Тесты
 
-Тесты backend лежат в `backend/app/tests` (unit, integration, e2e). Запуск описан в `docs/04-testing.md` (заполняется в ЛР 5).
+### Лабораторная работа 4: создание расследования
+
+Тесты `tests/test_investigation_contract.py` проверяют операцию `POST /investigations/`
+по [контракту ЛР 3](docs/interface-contract.md), сценарий US-2 и требование FR-2:
+
+- Название «Закупка автобусов», описание «Контракт № 17»: код 200, поля ответа,
+  владелец, пустая доска и сохранение записи в базе.
+- Запрос без `title`: код 422, ошибка `missing` для `body.title`, отсутствие записи в базе.
+
+Используется настоящий роутер FastAPI и новая SQLite в памяти для каждого теста.
+Авторизация заменена заглушкой пользователя с ID 3; проверка токенов в эти тесты
+не входит. `main.py` не импортируется, рабочая база не используется.
+Docker, MinIO, сервер приложения и внешние сервисы запускать не нужно.
+
+Команды выполняются из корня проекта. Рекомендуется Python 3.11 или 3.12.
+
+**Windows PowerShell:**
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
+.\.venv\Scripts\python.exe -m pytest tests/test_investigation_contract.py -v
+```
+
+Если установлен Python 3.12, в первой команде замените `-3.11` на `-3.12`.
+
+**Linux / WSL:**
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r backend/requirements.txt
+.venv/bin/python -m pytest tests/test_investigation_contract.py -v
+```
+
+Ожидаемый результат: `2 passed`. Команда запускает только новые тесты контракта.
+Прежние тесты backend находятся отдельно в `backend/app/tests`.
+
+### GitHub Actions: задача 2, только пункт 1
+
+Добавлен `.github/workflows/lab-4.yml` с событием `pull_request` в целевую ветку
+`main`: открытие PR (`opened`), добавление коммитов (`synchronize`) и повторное
+открытие (`reopened`). Источник: [GitHub Docs](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request).
+
+Пока workflow выполняет только информационный шаг. Его успешный статус означает
+срабатывание события, а не прохождение тестов. Установка Python, зависимостей,
+запуск тестов и дополнительная проверка относятся ко второму пункту задачи 2
+и будут добавлены позже. Существующий `ci-cd.yml` оставлен без изменений и
+может запускаться отдельно. Задача 3 на этом этапе не выполнялась.
 
 ## Структура репозитория
 
