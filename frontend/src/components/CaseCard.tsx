@@ -17,7 +17,6 @@ const CaseCard = ({
   isEditing = false,
   ...props 
 }) => {
-  const [isDragging, setIsDragging] = useState(false);
   const [editData, setEditData] = useState({
     title: title || '',
     articleUrl: articleUrl || '',

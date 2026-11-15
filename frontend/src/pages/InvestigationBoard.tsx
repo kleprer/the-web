@@ -145,7 +145,7 @@ const InvestigationBoard: React.FC = () => {
     return null;
   }, [getAllElements]);
 
-  const createConnection = (startElement: any, endElement: any): Connection | null => {
+  const createConnection = useCallback((startElement: any, endElement: any): Connection | null => {
     console.log('🔄 создание соединения между:', startElement.id, 'и', endElement.id);
     
     if (!startElement || !endElement) {
@@ -183,7 +183,7 @@ const InvestigationBoard: React.FC = () => {
     console.log('✅ соединение создано!', newConnection);
     markForSave();
     return newConnection;
-  };
+  }, [connections, markForSave]);
 
   const getConnectionPositions = useCallback((connection: Connection): { start: { x: number; y: number }; end: { x: number; y: number } } | null => {
     const allElements = getAllElements();
@@ -399,17 +399,6 @@ const InvestigationBoard: React.FC = () => {
     };
   }, [handleCanvasMouseMove, handleCanvasMouseUp]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === 'Delete' && selectedElements.size > 0) {
-        handleDeleteSelected();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedElements]);
-
   const handleDeleteSelected = useCallback((): void => {
     if (selectedElements.size === 0) return;
 
@@ -429,6 +418,17 @@ const InvestigationBoard: React.FC = () => {
     setSelectedElements(new Set());
     markForSave();
   }, [selectedElements, getAllElements, markForSave]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Delete' && selectedElements.size > 0) {
+        handleDeleteSelected();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedElements, handleDeleteSelected]);
 
   useEffect(() => {
     const allElementIds = new Set(getAllElements().map(el => el.id));
