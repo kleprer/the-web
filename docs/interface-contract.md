@@ -72,3 +72,60 @@
 ### Поведение при ошибке
 
 Характерная ошибка — в теле запроса нет обязательного поля `title`. Расследование не создаётся, сервер отвечает кодом `422 Unprocessable Entity`. Тело ответа — JSON, где `detail` — список ошибок проверки данных. Эту ошибку можно распознать по записи с `"type": "missing"` и `"loc": ["body", "title"]`.
+
+### Примеры
+
+#### Пример 1. Успешный вызов
+
+Запрос:
+
+```bash
+curl -X POST http://localhost:8000/investigations/ \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Закупка автобусов", "description": "Контракт № 17"}'
+```
+
+Ожидаемый результат — код `200` и тело:
+
+```json
+{
+  "title": "Закупка автобусов",
+  "description": "Контракт № 17",
+  "id": 1,
+  "user_id": 3,
+  "created_at": "2026-11-15T14:41:07.123456",
+  "updated_at": "2026-11-15T14:41:07.123456",
+  "is_archived": false,
+  "board_data": {"cards": [], "texts": [], "images": [], "connections": []}
+}
+```
+
+Значения `id`, `user_id`, `created_at` и `updated_at` зависят от состояния базы и времени вызова, в примере они условные.
+
+#### Пример 2. Ошибка: не передано название
+
+Запрос:
+
+```bash
+curl -X POST http://localhost:8000/investigations/ \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"description": "Контракт № 17"}'
+```
+
+Ожидаемый результат — код `422`, расследование не создаётся. Тело ответа:
+
+```json
+{
+  "detail": [
+    {
+      "type": "missing",
+      "loc": ["body", "title"],
+      "msg": "Field required"
+    }
+  ]
+}
+```
+
+В настоящем ответе у записи есть ещё поля `input` и `url`, для распознавания ошибки они не нужны.
