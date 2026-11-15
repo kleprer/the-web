@@ -52,6 +52,8 @@ Python 3.11, Node 18 (в образе frontend), Docker 24+, Docker Compose v2.
 - Название «Закупка автобусов», описание «Контракт № 17»: код 200, поля ответа,
   владелец, пустая доска и сохранение записи в базе.
 - Запрос без `title`: код 422, ошибка `missing` для `body.title`, отсутствие записи в базе.
+- Запрос без `description`: код 200, описание сохраняется как пустая строка.
+- Запрос с чужим `user_id` в теле: поле игнорируется, владельцем становится текущий пользователь.
 
 Используется настоящий роутер FastAPI и новая SQLite в памяти для каждого теста.
 Авторизация заменена заглушкой пользователя с ID 3; проверка токенов в эти тесты
@@ -78,20 +80,32 @@ python3 -m venv .venv
 .venv/bin/python -m pytest tests/test_investigation_contract.py -v
 ```
 
-Ожидаемый результат: `2 passed`. Команда запускает только новые тесты контракта.
+Ожидаемый результат: `4 passed`. Команда запускает только тесты контракта.
 Прежние тесты backend находятся отдельно в `backend/app/tests`.
 
-### GitHub Actions: задача 2, только пункт 1
+### GitHub Actions
 
-Добавлен `.github/workflows/lab-4.yml` с событием `pull_request` в целевую ветку
-`main`: открытие PR (`opened`), добавление коммитов (`synchronize`) и повторное
-открытие (`reopened`). Источник: [GitHub Docs](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request).
+Workflow `.github/workflows/lab-4.yml` запускается по событию `pull_request` в `main`:
+открытие PR (`opened`), новые коммиты (`synchronize`) и повторное открытие (`reopened`).
+Источник: [GitHub Docs](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request).
 
-Пока workflow выполняет только информационный шаг. Его успешный статус означает
-срабатывание события, а не прохождение тестов. Установка Python, зависимостей,
-запуск тестов и дополнительная проверка относятся ко второму пункту задачи 2
-и будут добавлены позже. Существующий `ci-cd.yml` оставлен без изменений и
-может запускаться отдельно. Задача 3 на этом этапе не выполнялась.
+Два независимых задания:
+
+1. **Backend tests (pytest)**: Python 3.11, `pip install -r backend/requirements.txt`,
+   `python -m pytest tests/test_investigation_contract.py -v`.
+2. **Frontend build check** (дополнительная проверка): Node.js 20, `npm ci`,
+   `npm run build` с `CI=true`. При такой настройке предупреждения ESLint считаются
+   ошибками, так же как при сборке на Vercel.
+
+Проверка сборки локально (из корня проекта):
+
+```bash
+cd frontend
+npm ci
+CI=true npm run build        # Windows PowerShell: $env:CI="true"; npm run build
+```
+
+Существующий `ci-cd.yml` (Docker-сборка и деплой) не менялся и работает отдельно.
 
 ## Структура репозитория
 
