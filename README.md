@@ -35,6 +35,7 @@ docker compose ps
 
 Python 3.11, Node 18 (в образе frontend), Docker 24+, Docker Compose v2.
 Зависимости backend: `backend/requirements.txt`, frontend: `frontend/package-lock.json`.
+В GitHub Actions используется Node 20 (npm 10); `frontend/package-lock.json` пересобирается командой `npx npm@10 install --package-lock-only`.
 
 ### Протокол проверки запуска
 
