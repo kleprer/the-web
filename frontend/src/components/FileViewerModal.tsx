@@ -32,10 +32,11 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose, onDown
         }
         setFileBlobUrl(objectUrl);
       } catch (err) {
+        if (cancelled) return;
         console.error('Ошибка загрузки файла:', err);
         setError('Не удалось загрузить файл');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
