@@ -15,6 +15,9 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose, onDown
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
     const loadFile = async () => {
       try {
         setLoading(true);
@@ -22,13 +25,18 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose, onDown
         
         // Скачиваем файл как Blob
         const blob = await apiService.downloadFile(file.id);
-        const url = URL.createObjectURL(blob);
-        setFileBlobUrl(url);
+        objectUrl = URL.createObjectURL(blob);
+        if (cancelled) {
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        setFileBlobUrl(objectUrl);
       } catch (err) {
+        if (cancelled) return;
         console.error('Ошибка загрузки файла:', err);
         setError('Не удалось загрузить файл');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
@@ -36,8 +44,9 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({ file, onClose, onDown
 
     // Очистка URL при размонтировании
     return () => {
-      if (fileBlobUrl) {
-        URL.revokeObjectURL(fileBlobUrl);
+      cancelled = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
       }
     };
   }, [file.id]);
